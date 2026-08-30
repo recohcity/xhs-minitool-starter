@@ -1,0 +1,1436 @@
+/* ==========================================================================
+   EBB AND FLOW - PREMIUM DESIGN SYSTEM & STYLESHEET
+   ========================================================================== */
+
+:root {
+    /* System font stack: offline container cannot load webfonts (Google Fonts removed) */
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+
+    /* Color Palette */
+    --deep-ocean-light: #0d3663;
+    --deep-ocean-dark: #03152b;
+    --water-ripple-1: rgba(255, 255, 255, 0.05);
+    --water-ripple-2: rgba(255, 255, 255, 0.03);
+    
+    /* Active Rule Colors */
+    --rule-green: #2ca444;
+    --rule-green-glow: rgba(44, 164, 68, 0.4);
+    --rule-orange: #f2720c;
+    --rule-orange-glow: rgba(242, 114, 12, 0.4);
+    
+    --bg-inactive: #4d5766;
+    --text-inactive: #121824;
+    
+    /* Stats & Alert states */
+    --accent-gold: #fbbf24;
+    --accent-gold-glow: rgba(251, 191, 36, 0.3);
+    --theme-success: #10b981;
+    --theme-success-glow: rgba(16, 185, 129, 0.3);
+    --theme-error: #ef4444;
+    --theme-error-glow: rgba(239, 68, 68, 0.35);
+
+    /* Text Colors */
+    --text-primary: #ffffff;
+    --text-secondary: #cbd5e1;
+    --text-muted: #64748b;
+
+    /* Glassmorphism Settings */
+    --glass-bg: rgba(255, 255, 255, 0.07);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-blur: 16px;
+    --glass-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.3);
+    
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ==========================================================================
+   BASE & RESET
+   ========================================================================== */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+    overflow: hidden;
+    height: 100vh;
+    height: 100dvh; /* mobile viewport height (address-bar safe) */
+    width: 100vw;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: var(--deep-ocean-dark);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* ==========================================================================
+   DYNAMIC DEEP WATER BACKGROUND (PARALLAX FLOW RIPPLES)
+   ========================================================================== */
+.water-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    background: radial-gradient(circle at 50% 30%, var(--deep-ocean-light) 0%, var(--deep-ocean-dark) 100%);
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* Wave current lines（静态装饰，无位移动画） */
+.current-line {
+    position: absolute;
+    width: 200%;
+    height: auto;
+    pointer-events: none;
+}
+
+.current-line-1 {
+    top: 20%;
+    left: 0;
+    opacity: 0.7;
+}
+
+.current-line-2 {
+    top: 50%;
+    left: -50%;
+    opacity: 0.5;
+}
+
+.current-line-3 {
+    top: 75%;
+    left: -20%;
+    opacity: 0.6;
+}
+
+/* Light ray beam effect */
+.water-background::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 15%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 70%);
+    transform: skewX(-25deg);
+}
+
+/* 透明绿叶：背景纹理，从下向上无限循环漂浮
+   16 片叶子各自独立循环，--delay 分布在整个周期内，
+   任意时刻屏幕纵向都有叶子覆盖，无间隙；
+   --duration 略有差异（22-26s），增加自然错落感；
+   所有叶片垂直（--rot:0deg），行程 = 屏高 + 叶高，无缝循环。 */
+.floating-leaves {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.float-leaf {
+    position: absolute;
+    left: var(--x);
+    top: 100%;
+    opacity: var(--op);
+    animation: leafRise var(--duration, 24s) linear infinite;
+    animation-delay: var(--delay, 0s);
+    will-change: transform;
+}
+
+.float-leaf svg {
+    display: block;
+    width: 68px;
+    height: auto;
+    filter: drop-shadow(0 2px 8px rgba(49, 148, 81, 0.35));
+}
+
+@keyframes leafRise {
+    from { transform: rotate(var(--rot)) translateY(0); }
+    to   { transform: rotate(var(--rot)) translateY(calc(-100vh - 120px)); }
+}
+
+/* ==========================================================================
+   APP CONTAINER & SCREENS
+   ========================================================================== */
+.app-container {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 850px;
+    height: 100vh;
+    height: 100dvh; /* mobile viewport height (address-bar safe) */
+    padding: 15px 15px max(15px, env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.screen {
+    display: none;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    flex-direction: column;
+    justify-content: center;
+    justify-content: safe center; /* scrollable without clipping top when overflowing */
+    align-items: center;
+    transition: opacity 0.4s ease;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.screen.active {
+    display: flex;
+    opacity: 1;
+}
+
+/* ==========================================================================
+   GLASSMORPHISM PANELS (CARDS)
+   ========================================================================== */
+.glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    border-radius: 24px;
+    padding: 28px;
+    transition: var(--transition-smooth);
+}
+
+.card {
+    width: 100%;
+    max-width: 520px;
+    margin-bottom: 20px;
+}
+
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+
+h2 {
+    font-family: var(--font-sans);
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+h3 {
+    font-family: var(--font-sans);
+    font-weight: 600;
+}
+
+p.description {
+    font-size: 1.05rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 22px;
+}
+
+/* Color hints inside paragraph */
+.rule-hint {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin: 2px;
+}
+
+.rule-hint.green {
+    background: rgba(44, 164, 68, 0.15);
+    color: #58c27a;
+    border: 1px solid rgba(44, 164, 68, 0.25);
+}
+
+.rule-hint.orange {
+    background: rgba(242, 114, 12, 0.15);
+    color: #ffaa5a;
+    border: 1px solid rgba(242, 114, 12, 0.25);
+}
+
+/* ==========================================================================
+   BUTTONS (PREMIUM STATE)
+   ========================================================================== */
+.btn-group {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    width: 100%;
+}
+
+.btn {
+    font-family: var(--font-sans);
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding: 14px 28px;
+    min-height: 48px; /* thumb-friendly touch target */
+    border-radius: 24px; /* pill shape, community-style */
+    border: none;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    outline: none;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #ff7b25 0%, #f2720c 100%);
+    color: #ffffff;
+    box-shadow: 0 4px 15px rgba(242, 114, 12, 0.4);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(242, 114, 12, 0.6);
+}
+
+.btn-primary:active {
+    transform: translateY(1px);
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.18);
+    transform: translateY(-2px);
+}
+
+.btn-secondary:active {
+    transform: translateY(1px);
+}
+
+/* 分享按钮：与再来一局区分、与返回首页区分 */
+.btn-share {
+    background: linear-gradient(135deg, #2ca444 0%, #107835 100%);
+    color: #ffffff;
+    box-shadow: 0 4px 15px rgba(44, 164, 68, 0.35);
+}
+
+.btn-share:hover {
+    background: linear-gradient(135deg, #36b956 0%, #1a8a43 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(44, 164, 68, 0.55);
+}
+
+.btn-share:active {
+    transform: translateY(1px);
+}
+
+.btn-text {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 5px;
+    line-height: 1;
+    transition: var(--transition-smooth);
+}
+
+.btn-text:hover {
+    color: #ffffff;
+    transform: scale(1.1);
+}
+
+/* ==========================================================================
+   GAME HEADER AREA
+   ========================================================================== */
+.game-header {
+    text-align: center;
+    margin-bottom: 25px;
+}
+
+.logo-area {
+    display: inline-flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.logo-icon {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.logo-leaf {
+    width: 34px;
+    height: auto; /* keep leaf aspect ratio (viewBox 100x130) */
+}
+
+.logo-text {
+    font-family: var(--font-sans);
+    font-size: 2.8rem;
+    font-weight: 800;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.tagline {
+    font-size: 1.05rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+    margin-top: 5px;
+}
+
+/* ==========================================================================
+   WELCOME — 首页（小红书轻测评风格）
+   ========================================================================== */
+.welcome-hero {
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.welcome-title {
+    font-size: 1.45rem;
+    font-weight: 800;
+    margin-bottom: 4px;
+    background: linear-gradient(135deg, #ffffff 0%, #a7f0bd 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.welcome-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    letter-spacing: 1px;
+    white-space: nowrap;
+}
+
+/* 卖点标签行 */
+.welcome-tags {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.welcome-tag {
+    font-size: 0.72rem;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+/* 规则卡片（轻松口语化） */
+.rule-card {
+    padding: 12px 16px;
+    margin-bottom: 12px;
+}
+
+.rule-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 0;
+}
+
+.rule-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.rule-dot.green {
+    background: #58c27a;
+    box-shadow: 0 0 8px rgba(88, 194, 122, 0.5);
+}
+
+.rule-dot.orange {
+    background: #ff9f43;
+    box-shadow: 0 0 8px rgba(255, 159, 67, 0.5);
+}
+
+.rule-text {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.rule-text strong {
+    color: #ffffff;
+    font-weight: 700;
+}
+
+/* 首页按钮组（垂直排列） */
+.welcome-btns {
+    flex-direction: column;
+    width: 100%;
+    max-width: 320px;
+    gap: 10px;
+    margin-top: 28px;
+    margin-bottom: max(14px, env(safe-area-inset-bottom));
+}
+
+.welcome-btns .btn {
+    width: 100%;
+}
+
+/* 无报告时的提示文字 */
+.report-hint {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    text-align: center;
+    margin-top: 2px;
+    white-space: nowrap;
+}
+
+/* 极简规则两行 */
+.welcome-rules {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+    width: 100%;
+    max-width: 360px;
+}
+
+.welcome-rule {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    white-space: nowrap;
+}
+
+/* 报告入口卡片 */
+.report-entry {
+    width: 100%;
+    max-width: 420px;
+    padding: 14px 18px;
+    margin-bottom: max(10px, env(safe-area-inset-bottom));
+    cursor: pointer;
+    transition: var(--transition-smooth);
+}
+
+.report-entry:hover {
+    background: rgba(255, 255, 255, 0.12);
+    transform: translateY(-1px);
+}
+
+.report-entry:active {
+    transform: scale(0.99);
+}
+
+.report-entry-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.report-entry-icon {
+    font-size: 1.1rem;
+}
+
+.report-entry-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.report-entry-arrow {
+    margin-left: auto;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.report-entry-summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.report-entry-rank {
+    font-weight: 700;
+    color: var(--accent-gold);
+}
+
+.report-entry-empty {
+    text-align: center;
+}
+
+.report-entry-empty-text {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin: 4px 0;
+}
+
+/* 报告详情页日期 */
+.report-date {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    letter-spacing: 0.5px;
+}
+
+/* 记录面板紧凑化 */
+.leaderboard-panel {
+    padding: 14px 18px;
+}
+
+.leaderboard-panel h3 {
+    font-size: 1.05rem;
+    margin-bottom: 8px;
+}
+
+/* ==========================================================================
+   LEADERBOARD / SCORE RECORDS
+   ========================================================================== */
+.leaderboard-panel {
+    max-width: 520px;
+}
+
+.leaderboard-panel h3 {
+    font-size: 1.25rem;
+    margin-bottom: 12px;
+    color: var(--accent-gold);
+    letter-spacing: 0.5px;
+}
+
+.leaderboard-list {
+    list-style: none;
+}
+
+.leaderboard-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+    border-left: 3px solid transparent;
+    transition: var(--transition-smooth);
+    white-space: nowrap;
+}
+
+.leaderboard-list li:hover {
+    background: rgba(255, 255, 255, 0.08);
+    transform: scale(1.01);
+}
+
+.leaderboard-list li.rank-1 {
+    border-left-color: var(--accent-gold);
+    background: rgba(251, 191, 36, 0.08);
+    font-weight: 600;
+}
+
+.leaderboard-list li.empty-list {
+    justify-content: center;
+    color: var(--text-muted);
+    font-style: italic;
+    background: none;
+    border: none;
+}
+
+.rank-index {
+    font-weight: bold;
+    color: var(--text-secondary);
+    margin-right: 2px;
+}
+
+.rank-1 .rank-index {
+    color: var(--accent-gold);
+}
+
+/* 单行：名次 | 分数 + 统计（右对齐）
+   字号用 vw 自适应收窄，保证分数 + 正确率 + 用时始终一行显示 */
+.lb-stats {
+    margin-left: auto;
+    font-size: clamp(0.6rem, 3.4vw, 0.82rem);
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+/* 分数与正确率/用时同一字号（继承），仅用颜色与字重区分 */
+.lb-stats .lb-score {
+    color: var(--accent-gold);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   TUTORIAL SCREEN & VISUALIZERS
+   ========================================================================== */
+.tutorial-card {
+    width: 100%;
+    max-width: 580px;
+}
+
+.tutorial-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 12px;
+    margin-bottom: 18px;
+}
+
+.tutorial-header h2 {
+    font-size: 1.8rem;
+    margin-bottom: 0;
+}
+
+.tutorial-step {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.tutorial-step.active {
+    display: flex;
+}
+
+.leaf-preview-box {
+    width: 100%;
+    height: 180px;
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 16px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    position: relative;
+    overflow: hidden;
+}
+
+.leaf-visualizer {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.tut-instruction {
+    font-size: 1.05rem;
+    line-height: 1.55;
+    margin-bottom: 20px;
+    color: var(--text-secondary);
+    min-height: 50px;
+    max-width: 460px;
+}
+
+/* Tutorial Practice Section */
+.practice-box {
+    width: 100%;
+    height: 220px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 15px;
+    border: 1.5px solid rgba(255, 255, 255, 0.08);
+    position: relative;
+    overflow: hidden;
+}
+
+.feedback-indicator {
+    position: absolute;
+    bottom: 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: rgba(0, 0, 0, 0.4);
+    padding: 4px 14px;
+    border-radius: 20px;
+    transition: var(--transition-smooth);
+}
+
+.feedback-indicator.correct {
+    color: var(--theme-success);
+    box-shadow: 0 0 10px var(--theme-success-glow);
+    background: rgba(16, 185, 129, 0.15);
+}
+
+.feedback-indicator.incorrect {
+    color: var(--theme-error);
+    box-shadow: 0 0 10px var(--theme-error-glow);
+    background: rgba(239, 68, 68, 0.15);
+    animation: shake 0.3s ease-in-out;
+}
+
+.practice-progress {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.practice-progress .dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    transition: var(--transition-smooth);
+}
+
+.practice-progress .dot.filled {
+    background: var(--theme-success);
+    border-color: var(--theme-success);
+    box-shadow: 0 0 8px var(--theme-success-glow);
+}
+
+/* ==========================================================================
+   GAMEPLAY SCREEN UI
+   ========================================================================== */
+#playingScreen {
+    max-width: 800px;
+    /* 容器顶部有悬浮的返回/分享按钮，内容整体下移让位 */
+    padding-top: calc(env(safe-area-inset-top, 0px) + 48px);
+}
+
+.game-dashboard {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 24px;
+    margin-bottom: 20px;
+}
+
+.dashboard-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.dashboard-item .label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.dashboard-item .value {
+    font-family: var(--font-sans);
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+.timer-value {
+    font-variant-numeric: tabular-nums;
+}
+
+.timer-bar-container {
+    width: 110px;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+    margin-top: 5px;
+    overflow: hidden;
+}
+
+.timer-bar-fill {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+    border-radius: 3px;
+    transition: width 0.1s linear;
+}
+
+.timer-bar-fill.warning {
+    background: linear-gradient(90deg, #ef4444 0%, #f87171 100%);
+    animation: alertPulse 0.5s infinite alternate;
+}
+
+@keyframes alertPulse {
+    0% { opacity: 0.6; }
+    100% { opacity: 1; }
+}
+
+.multiplier-display {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.multiplier-val {
+    font-family: var(--font-sans);
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--accent-gold);
+    text-shadow: 0 0 10px var(--accent-gold-glow);
+}
+
+.meter-dots {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.meter-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    transition: var(--transition-smooth);
+}
+
+.meter-dot.active {
+    background: var(--accent-gold);
+    box-shadow: 0 0 8px var(--accent-gold);
+}
+
+/* ==========================================================================
+   GAME BOARD & LEAF ANIMATION
+   ========================================================================== */
+.game-board {
+    position: relative;
+    width: 100%;
+    height: 420px;
+    flex: 1 1 auto; /* fill available vertical space on phones */
+    min-height: 300px;
+    background: rgba(3, 21, 43, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 4px 30px rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border-radius: 20px;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.leaf-flow-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* Shaded Dynamic Leaf elements */
+.leaf-element {
+    position: absolute;
+    width: 80px;
+    height: 104px;
+    pointer-events: none;
+    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.25));
+}
+
+.leaf-svg {
+    width: 100%;
+    height: 100%;
+}
+
+.green-leaf {
+    --leaf-left-color: #58c27a;
+    --leaf-right-color: #319451;
+    --leaf-stem-color: #a7f0bd;
+}
+
+.orange-leaf {
+    --leaf-left-color: #ff9f43;
+    --leaf-right-color: #d37314;
+    --leaf-stem-color: #ffe0b3;
+}
+
+.leaf-left {
+    fill: var(--leaf-left-color);
+}
+
+.leaf-right {
+    fill: var(--leaf-right-color);
+}
+
+.leaf-stem {
+    stroke: var(--leaf-stem-color);
+    stroke-width: 3.5;
+    stroke-linecap: round;
+}
+
+.leaf-bottom-stem {
+    stroke: var(--leaf-stem-color);
+    stroke-width: 6.5;
+    stroke-linecap: round;
+}
+
+.leaf-outline, .leaf-outline-stem {
+    stroke: #ffffff;
+    stroke-width: 7;
+}
+
+/* Flash Feedbacks */
+.flash-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 5;
+    transition: opacity 0.1s ease;
+}
+
+.flash-overlay.flash-correct {
+    box-shadow: inset 0 0 60px var(--theme-success-glow);
+    opacity: 1;
+}
+
+.flash-overlay.flash-incorrect {
+    box-shadow: inset 0 0 60px var(--theme-error-glow);
+    opacity: 1;
+}
+
+/* Screen shake effect on incorrect key */
+.game-board.shake {
+    animation: shake 0.3s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    15%, 45%, 75% { transform: translateX(-8px); }
+    30%, 60%, 90% { transform: translateX(8px); }
+}
+
+/* ==========================================================================
+   MINI-TOOL CONTAINER / CROSS-PLATFORM ADAPTATIONS (offline sandbox)
+   ========================================================================== */
+html {
+    touch-action: manipulation; /* eliminate double-tap zoom delay */
+}
+
+body {
+    -webkit-touch-callout: none; /* disable system long-press callout (banned in container) */
+}
+
+.game-board {
+    touch-action: none; /* keep swipe gestures on the board (not hijacked for scrolling) */
+}
+
+.practice-box {
+    touch-action: none; /* tutorial practice area: swipes must answer, not scroll */
+}
+
+/* Touch press feedback (hover is unreliable on real devices) */
+.btn:active,
+.btn-text:active {
+    opacity: 0.75;
+    transform: scale(0.98);
+}
+
+/* Keep fixed-height UI parts stable while the game board flexes */
+#playingScreen .game-dashboard,
+.playing-footer {
+    flex-shrink: 0;
+}
+
+/* In-game action bar: restart / back home */
+.playing-footer {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 22px; /* 与画布保持间距 */
+}
+
+/* 对局操作按钮：紧凑尺寸 */
+.playing-footer .btn {
+    font-size: 0.9rem;
+    min-height: 40px;
+    padding: 9px 22px;
+    border-radius: 20px;
+}
+
+/* Mobile-first refinements (mini-tool runs inside a phone WebView) */
+@media (max-width: 480px) {
+    .glass-panel { padding: 20px 18px; border-radius: 20px; }
+    .card { margin-bottom: 14px; }
+    h2 { font-size: 1.55rem; }
+    .logo-text { font-size: 2rem; }
+    .logo-leaf { width: 28px; }
+    .tagline { font-size: 0.95rem; }
+    p.description { font-size: 0.98rem; }
+    .rule-hint { font-size: 0.88rem; }
+    .btn { font-size: 1rem; padding: 13px 22px; }
+    .game-dashboard { padding: 10px 16px; margin-bottom: 12px; }
+    .dashboard-item .value,
+    .multiplier-val { font-size: 1.35rem; }
+    .timer-bar-container { width: 76px; }
+    .stat-card { padding: 16px; min-height: 88px; }
+    .stat-value { font-size: 1.35rem; }
+    .stat-value.highlight { font-size: 2rem; }
+    .tutorial-header h2 { font-size: 1.4rem; }
+    .tut-instruction { font-size: 0.98rem; }
+    .leaf-preview-box { height: 150px; }
+    .practice-box { height: 190px; }
+    .reaction-breakdown { padding: 10px 12px; }
+    .breakdown-item { font-size: 0.88rem; }
+    .leaderboard-list li { gap: 8px; padding: 9px 12px; font-size: 0.9rem; }
+    .playing-footer { margin-top: 18px; }
+    .playing-footer .btn { font-size: 0.85rem; padding: 8px 18px; }
+}
+
+/* ==========================================================================
+   GAME OVER SCREEN & DASHBOARD STATS
+   ========================================================================== */
+#gameOverScreen {
+    max-width: 720px;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    width: 100%;
+    margin-bottom: 25px;
+}
+
+.stat-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    min-height: 100px;
+}
+
+.stat-card.hero-stat {
+    grid-column: span 2;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.stat-card.full-width {
+    grid-column: span 2;
+    align-items: stretch;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+.stat-value {
+    font-family: var(--font-sans);
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+.stat-value.highlight {
+    font-size: 2.6rem;
+    color: var(--accent-gold);
+    text-shadow: 0 0 15px var(--accent-gold-glow);
+}
+
+.stat-subtext {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+/* Latency Switch Cost Breakdown */
+.reaction-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 15px;
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 12px;
+    padding: 12px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.breakdown-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.95rem;
+}
+
+.breakdown-item.divider {
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding-top: 10px;
+    margin-top: 2px;
+}
+
+.b-label {
+    color: var(--text-secondary);
+}
+
+.b-value {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.b-value.warning {
+    color: var(--rule-orange);
+    text-shadow: 0 0 8px var(--rule-orange-glow);
+}
+
+/* ==========================================================================
+   UTILITY & ANIMATION KEYFRAMES
+   ========================================================================== */
+.font-center {
+    text-align: center;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    15%, 45%, 75% { transform: translateX(-8px); }
+    30%, 60%, 90% { transform: translateX(8px); }
+}
+
+/* ==========================================================================
+   GAME OVER — 反应力报告页（紧凑版·单屏）
+   ========================================================================== */
+#gameOverScreen {
+    max-width: 640px;
+    padding-top: 8px;
+}
+
+#gameOverScreen .game-header {
+    margin-bottom: 10px;
+}
+
+#gameOverScreen .game-header h2 {
+    font-size: 1.35rem;
+    margin-bottom: 0;
+}
+
+/* 等级大卡片 */
+.rank-card {
+    text-align: center;
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.20);
+    padding: 12px 16px;
+    margin-bottom: 8px;
+}
+
+.rank-title {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--accent-gold);
+    text-shadow: 0 0 10px var(--accent-gold-glow);
+    margin-bottom: 3px;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+
+.rank-tag {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #a7f0bd;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+/* 个性化解读卡片 */
+.interpret-card {
+    padding: 8px 14px;
+    margin-bottom: 8px;
+}
+
+.interpret-text {
+    font-size: 0.88rem;
+    line-height: 1.4;
+    color: var(--text-secondary);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 四大能力卡片网格 */
+.ability-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+    margin-bottom: 8px;
+}
+
+.ability-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 6px;
+    min-height: 68px;
+    gap: 1px;
+}
+
+.ability-icon {
+    font-size: 1.05rem;
+    line-height: 1;
+}
+
+.ability-name {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+
+.ability-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #ffffff;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.ability-eval {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--theme-success);
+    white-space: nowrap;
+}
+
+/* 本局小记（辅助数据，弱化·紧凑） */
+.sub-data-card {
+    padding: 8px 14px;
+    margin-bottom: 8px;
+}
+
+.sub-data-title {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    letter-spacing: 0.8px;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.sub-data-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    padding: 2px 0;
+    color: var(--text-secondary);
+}
+
+.sub-data-row span:first-child {
+    white-space: nowrap;
+}
+
+.sub-data-row span:last-child {
+    font-weight: 600;
+    color: #ffffff;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* 训练建议卡片 */
+.tip-card {
+    padding: 8px 14px;
+    margin-bottom: 12px;
+    border-left: 3px solid var(--theme-success);
+}
+
+.tip-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--theme-success);
+    margin-bottom: 3px;
+    white-space: nowrap;
+}
+
+.tip-content {
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: var(--text-secondary);
+}
+
+/* 结束页按钮组：三按钮紧凑 */
+/* 结束页 & 报告详情页 按钮组：三按钮横向紧凑 */
+#gameOverScreen .btn-group,
+#reportScreen .btn-group {
+    flex-wrap: nowrap;
+    gap: 8px;
+    margin-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+#gameOverScreen .btn-group .btn,
+#reportScreen .btn-group .btn {
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: 0.88rem;
+    padding: 10px 8px;
+    min-height: 40px;
+    white-space: nowrap;
+}
+
+/* 移动端适配（结束页紧凑版） */
+@media (max-width: 480px) {
+    #gameOverScreen .game-header h2 { font-size: 1.15rem; }
+    .rank-title { font-size: 1rem; }
+    .rank-tag { font-size: 0.75rem; }
+    .interpret-text { font-size: 0.8rem; }
+    .ability-card { padding: 6px 4px; min-height: 62px; }
+    .ability-icon { font-size: 0.95rem; }
+    .ability-value { font-size: 1rem; }
+    .ability-name, .ability-eval { font-size: 0.68rem; }
+    .sub-data-card { padding: 6px 12px; }
+    .sub-data-row { font-size: 0.78rem; padding: 1px 0; }
+    .sub-data-title { font-size: 0.68rem; margin-bottom: 2px; }
+    .tip-card { padding: 6px 12px; }
+    .tip-title { font-size: 0.78rem; }
+    .tip-content { font-size: 0.78rem; line-height: 1.4; }
+    #gameOverScreen .btn-group .btn { font-size: 0.8rem; padding: 8px 4px; min-height: 36px; }
+
+    /* 首页移动端适配 */
+    .welcome-title { font-size: 1.2rem; }
+    .welcome-subtitle { font-size: 0.78rem; }
+    .welcome-rules { margin-bottom: 10px; gap: 4px; }
+    .welcome-rule { font-size: 0.82rem; padding: 6px 12px; gap: 8px; }
+    .rule-dot { width: 9px; height: 9px; }
+    .report-entry { padding: 10px 14px; }
+    .report-entry-title { font-size: 0.88rem; }
+    .report-entry-summary { font-size: 0.75rem; gap: 8px; }
+    .welcome-btns { margin-bottom: 10px; }
+    .welcome-btns .btn { font-size: 0.95rem; padding: 11px 18px; }
+}

@@ -1,0 +1,32 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ocean" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d3663"/>
+      <stop offset="1" stop-color="#03152b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.45" r="0.55">
+      <stop offset="0" stop-color="#58c27a" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#58c27a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- deep ocean background -->
+  <rect width="1024" height="1024" fill="url(#ocean)"/>
+
+  <!-- soft green glow behind leaf -->
+  <rect width="1024" height="1024" fill="url(#glow)"/>
+
+  <!-- flow current lines (game identity) -->
+  <path d="M0 860 Q256 810 512 860 T1024 860" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="10"/>
+  <path d="M0 930 Q256 880 512 930 T1024 930" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="14"/>
+
+  <!-- green leaf (same shape as in-game) -->
+  <g transform="translate(512,486) scale(5.4) translate(-50,-65)">
+    <path d="M 50,110 C 20,90 15,50 50,10 C 85,50 80,90 50,110 Z" fill="none" stroke="#ffffff" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
+    <line x1="50" y1="110" x2="50" y2="120" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+    <path d="M 50,110 C 20,90 15,50 50,10 Z" fill="#58c27a"/>
+    <path d="M 50,10 C 85,50 80,90 50,110 Z" fill="#319451"/>
+    <line x1="50" y1="110" x2="50" y2="10" stroke="#a7f0bd" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="50" y1="110" x2="50" y2="120" stroke="#a7f0bd" stroke-width="6.5" stroke-linecap="round"/>
+  </g>
+</svg>

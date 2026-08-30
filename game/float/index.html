@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>飘 · 反应力训练</title>
+    <meta name="description" content="60秒滑动反应挑战：绿叶看指向、橙叶看移动，锻炼你的反应灵活性与注意力控制。">
+    <!-- CSS stylesheet Link (offline: no external fonts, system font stack in styles.css) -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Atmospheric Deep Water Background: static flow lines + rising leaves -->
+    <div class="water-background" id="waterBg">
+        <svg class="current-line current-line-1" viewBox="0 0 1440 200" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 100 Q360 50 720 100 T1440 100" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="3"/>
+        </svg>
+        <svg class="current-line current-line-2" viewBox="0 0 1440 200" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 80 Q360 130 720 80 T1440 80" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="4"/>
+        </svg>
+        <svg class="current-line current-line-3" viewBox="0 0 1440 200" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 120 Q360 70 720 120 T1440 120" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="2"/>
+        </svg>
+
+        <!-- 透明绿叶：背景纹理，垂直向上无限循环漂浮
+             16 片各自独立循环，--delay 均匀分布在整个周期内，
+             任意时刻屏幕纵向都有叶子覆盖，无间隙；
+             --duration 22-26s 略有差异，增加自然错落感；
+             所有叶片垂直（--rot:0deg），不随机倾斜。 -->
+        <div class="floating-leaves">
+            <div class="float-leaf" style="--x:5%;  --delay:-24s;   --rot:0deg; --op:0.08; --duration:23s;">
+                <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg"><path d="M 50,110 C 20,90 15,50 50,10 C 85,50 80,90 50,110 Z" fill="#66cf88"/></svg>
+            </div>
+            <div class="float-leaf" style="--x:11%; --delay:-22.5s; --rot:0deg; --op:0.10; --duration:25s;">
+                <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg"><path d="M 50,110 C 20,90 15,50 50,10 C 85,50 80,90 50,110 Z" fill="#8fe0a8"/></svg>
+            </div>
+            <div class="float-leaf" style="--x:17%; --delay:-21s;   --rot:0deg; --op:0.07; --duration:24s;">
+                <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg"><path d="M 50,110 C 20,90 15,50 50,10 C 85,50 80,90 50,110 Z" fill="#4fb873"/></svg>
+            </div>
+            <div class="float-leaf" style="--x:23%; --delay:-19.5s; --rot:0deg; --op:0.11; --duration:26s;">
+                <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg"><path d="M 50,110 C 20,90 15,50 50,10 C 85,50 80,90 50,110 Z" fill="#7bd59a"/></svg>
+            </div>
+            <div class="float-leaf" style="--x:29%; --delay:-18s;   --rot:0deg; --op:0.09; --duration:23s;">
+                <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg"><path d="M 50,110 C 20,90 15,50 50,10 C 85,50 80,90 50,110 Z" fill="#66cf88"/></svg>
+            </div>
+            <div class="float-leaf" style="--x:35%; --delay:-16.5s; --rot:0deg; --op:0.10; --duration:25s;">
+                <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg"><path d="M 50,110 C 20,90 15,50 50,10 C 85,50 80,90 50,110 Z" fill="#8fe0a8"/></svg>
+            </div>
+            <div class="float-leaf" style="--x:41%; --delay:-15s;   --rot:0deg; --op:0.08; --duration:24s;">
+                <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg"><path d="M 50,110 C 20,90 15,50 50,10 C 85,50 80,90 50,110 Z" fill="#4fb873"/></svg>
+            </div>
+            <div class="float-leaf" style="--x:47%; --delay:-13.5s; --rot:0deg; --op:0.12; --duration:26s;">
+                <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg"><path d="M 50,110 C 20,90 15,50 50,10 C 85,50 80,90 50,110 Z" fill="#7bd59a"/></svg>
+            </div>
+            <div class="float-leaf" style="--x:53%; --delay:-12s;   --rot:0deg; --op:0.09; --duration:23s;">
+                <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg"><path d="M 50,110 C 20,90 15,50 50,10 C 85,50 80,90 50,110 Z" fill="#66cf88"/></svg>
+            </div>
+            <div class="float-leaf" style="--x:59%; --delay:-10.5s; --rot:0deg; --op:0.10; --duration:25s;">
+                <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg"><path d="M 50,110 C 20,90 15,50 50,10 C 85,50 80,90 50,110 Z" fill="#8fe0a8"/></svg>
+            </div>
+            <div class="float-leaf" style="--x:65%; --delay:-9s;    --rot:0deg; --op:0.07; --duration:24s;">
+                <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg"><path d="M 50,110 C 20,90 15,50 50,10 C 85,50 80,90 50,110 Z" fill="#4fb873"/></svg>
+            </div>
+            <div class="float-leaf" style="--x:71%; --delay:-7.5s;  --rot:0deg; --op:0.11; --duration:26s;">
+                <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg"><path d="M 50,110 C 20,90 15,50 50,10 C 85,50 80,90 50,110 Z" fill="#7bd59a"/></svg>
+            </div>
+            <div class="float-leaf" style="--x:77%; --delay:-6s;    --rot:0deg; --op:0.08; --duration:23s;">
+                <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg"><path d="M 50,110 C 20,90 15,50 50,10 C 85,50 80,90 50,110 Z" fill="#66cf88"/></svg>
+            </div>
+            <div class="float-leaf" style="--x:83%; --delay:-4.5s;  --rot:0deg; --op:0.10; --duration:25s;">
+                <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg"><path d="M 50,110 C 20,90 15,50 50,10 C 85,50 80,90 50,110 Z" fill="#8fe0a8"/></svg>
+            </div>
+            <div class="float-leaf" style="--x:89%; --delay:-3s;    --rot:0deg; --op:0.09; --duration:24s;">
+                <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg"><path d="M 50,110 C 20,90 15,50 50,10 C 85,50 80,90 50,110 Z" fill="#4fb873"/></svg>
+            </div>
+            <div class="float-leaf" style="--x:95%; --delay:-1.5s;  --rot:0deg; --op:0.11; --duration:26s;">
+                <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg"><path d="M 50,110 C 20,90 15,50 50,10 C 85,50 80,90 50,110 Z" fill="#7bd59a"/></svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application Container -->
+    <main class="app-container">
+        
+        <!-- ================= WELCOME SCREEN ================= -->
+        <section id="welcomeScreen" class="screen active">
+            <header class="game-header">
+                <div class="logo-area">
+                    <span class="logo-icon">
+                        <svg viewBox="0 0 100 130" class="logo-leaf">
+                            <path d="M 50,110 C 20,90 15,50 50,10 C 85,50 80,90 50,110 Z" fill="none" stroke="#ffffff" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
+                            <line x1="50" y1="110" x2="50" y2="120" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+                            <path d="M 50,110 C 20,90 15,50 50,10 Z" fill="#58c27a"/>
+                            <path d="M 50,10 C 85,50 80,90 50,110 Z" fill="#319451"/>
+                            <line x1="50" y1="110" x2="50" y2="10" stroke="#a7f0bd" stroke-width="3.5" stroke-linecap="round"/>
+                            <line x1="50" y1="110" x2="50" y2="120" stroke="#a7f0bd" stroke-width="6.5" stroke-linecap="round"/>
+                        </svg>
+                    </span>
+                    <h1 class="logo-text">飘</h1>
+                </div>
+            </header>
+
+            <!-- 主标题钩子 + 副标题 -->
+            <div class="welcome-hero">
+                <h2 class="welcome-title">60秒测测你的反应力</h2>
+                <p class="welcome-subtitle">绿叶看指向 · 橙叶看移动</p>
+            </div>
+
+            <!-- 操作按钮（垂直排列） -->
+            <div class="btn-group welcome-btns">
+                <button id="startGameBtn" class="btn btn-primary">立即挑战</button>
+                <button id="startTutorialBtn" class="btn btn-secondary">玩法教学</button>
+                <button id="viewReportBtn" class="btn btn-secondary">我的反应力报告</button>
+                <p class="report-hint" id="reportHint" style="display:none;">玩一次游戏就可以看到你的报告！</p>
+            </div>
+        </section>
+
+        <!-- ================= TUTORIAL / HOW TO PLAY SCREEN ================= -->
+        <section id="tutorialScreen" class="screen">
+            <div class="tutorial-card glass-panel">
+                <div class="tutorial-header">
+                    <button id="skipTutorialBtn" class="btn-text">&times;</button>
+                    <h2>新手教学</h2>
+                </div>
+
+                <div class="tutorial-body">
+                    <div class="tutorial-step active" id="step1">
+                        <div class="leaf-preview-box">
+                            <div class="leaf-visualizer" id="tutLeaf1"></div>
+                        </div>
+                        <p class="tut-instruction">
+                            出现<strong class="green">绿色</strong>叶片时，看它<strong>指向</strong>哪里。
+                            图中叶片正向左漂，但朝<strong>上</strong>指——答案是向上滑。
+                        </p>
+                        <button class="btn btn-primary btn-next-step" data-next="step2">下一步</button>
+                    </div>
+
+                    <div class="tutorial-step" id="step2">
+                        <div class="leaf-preview-box">
+                            <div class="leaf-visualizer" id="tutLeaf2"></div>
+                        </div>
+                        <p class="tut-instruction">
+                            出现<strong class="orange">橙色</strong>叶片时，看它<strong>移动</strong>的方向。
+                            图中叶片朝上指，但正向<strong>左</strong>漂——正确答案是向左滑。
+                        </p>
+                        <button class="btn btn-primary btn-next-step" data-next="step3">开始练习</button>
+                    </div>
+
+                    <div class="tutorial-step" id="step3">
+                        <div class="practice-box">
+                            <div class="leaf-visualizer" id="tutPracticeLeaf"></div>
+                            <div class="feedback-indicator" id="tutFeedback">练习：向对应方向滑动</div>
+                        </div>
+                        <p class="tut-instruction">
+                            上手试试：连续答对 <span id="tutRequiredCount">3</span> 次即完成教学。
+                            <br>
+                            <span class="green">绿 = 指向</span> ｜ <span class="orange">橙 = 移动</span>
+                        </p>
+                        <div class="practice-progress">
+                            <span class="dot"></span>
+                            <span class="dot"></span>
+                            <span class="dot"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= PLAYING SCREEN ================= -->
+        <section id="playingScreen" class="screen">
+            <!-- Top Dashboard Stats -->
+            <div class="game-dashboard glass-panel">
+                <div class="dashboard-item">
+                    <span class="label">时间</span>
+                    <span class="value timer-value" id="timerDisplay">60s</span>
+                    <div class="timer-bar-container">
+                        <div class="timer-bar-fill" id="timerBarFill"></div>
+                    </div>
+                </div>
+
+                <div class="dashboard-item text-center">
+                    <span class="label">倍率</span>
+                    <div class="multiplier-display">
+                        <span class="multiplier-val" id="multiplierDisplay">1x</span>
+                        <div class="meter-dots" id="multiplierMeter">
+                            <span class="meter-dot"></span>
+                            <span class="meter-dot"></span>
+                            <span class="meter-dot"></span>
+                            <span class="meter-dot"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-item text-right">
+                    <span class="label">得分</span>
+                    <span class="value" id="scoreDisplay">0</span>
+                </div>
+            </div>
+
+            <!-- Game Board (Leaf Flow Area) -->
+            <div class="game-board" id="gameBoard">
+                <div class="leaf-flow-container" id="leafContainer">
+                    <!-- Leaves generated dynamically by JavaScript -->
+                </div>
+                <!-- Visual flash indicator overlay for hit / miss -->
+                <div class="flash-overlay" id="flashOverlay"></div>
+            </div>
+
+            <!-- In-game actions -->
+            <footer class="playing-footer">
+                <button id="inGameRestartBtn" class="btn btn-primary">重新开始</button>
+                <button id="inGameHomeBtn" class="btn btn-secondary">返回首页</button>
+            </footer>
+        </section>
+
+        <!-- ================= GAME OVER SCREEN ================= -->
+        <section id="gameOverScreen" class="screen">
+            <header class="game-header text-center">
+                <h2>我的反应力报告</h2>
+            </header>
+
+            <!-- 反应力等级大卡片 -->
+            <div class="card glass-panel rank-card">
+                <div class="rank-title" id="rankTitle">🎉反应力等级：S｜超敏捷</div>
+                <div class="rank-tag" id="rankTag">超敏捷·反应小天才</div>
+            </div>
+
+            <!-- 个性化解读 -->
+            <div class="card glass-panel interpret-card">
+                <p class="interpret-text" id="interpretText">你的反应又快又稳，面对规则切换也可以轻松接住，天赋很不错✨</p>
+            </div>
+
+            <!-- 四大能力卡片组 -->
+            <div class="ability-grid">
+                <div class="card glass-panel ability-card">
+                    <span class="ability-icon">⚡</span>
+                    <span class="ability-name">反应速度</span>
+                    <span class="ability-value" id="abilitySpeedVal">620ms</span>
+                    <span class="ability-eval" id="abilitySpeedEval">偏快</span>
+                </div>
+                <div class="card glass-panel ability-card">
+                    <span class="ability-icon">🎯</span>
+                    <span class="ability-name">判断准确度</span>
+                    <span class="ability-value" id="abilityAccuracyVal">94%</span>
+                    <span class="ability-eval" id="abilityAccuracyEval">很稳定</span>
+                </div>
+                <div class="card glass-panel ability-card">
+                    <span class="ability-icon">🔄</span>
+                    <span class="ability-name">切换灵活性</span>
+                    <span class="ability-value" id="abilitySwitchVal">750ms</span>
+                    <span class="ability-eval" id="abilitySwitchEval">灵活</span>
+                </div>
+                <div class="card glass-panel ability-card">
+                    <span class="ability-icon">🧠</span>
+                    <span class="ability-name">连续专注力</span>
+                    <span class="ability-value" id="abilityFocusVal">12题</span>
+                    <span class="ability-eval" id="abilityFocusEval">专注力在线</span>
+                </div>
+            </div>
+
+            <!-- 本局小记（辅助数据，弱化展示） -->
+            <div class="card glass-panel sub-data-card">
+                <div class="sub-data-title">📝本局小记</div>
+                <div class="sub-data-row"><span>本局得分</span><span id="subScoreVal">14,200</span></div>
+                <div class="sub-data-row"><span>最高专注峰值</span><span id="subPeakVal">8x</span></div>
+                <div class="sub-data-row"><span>最快一次反应</span><span id="subFastestVal">410ms</span></div>
+            </div>
+
+            <!-- 训练建议模块 -->
+            <div class="card glass-panel tip-card">
+                <div class="tip-title">💡给你的小训练建议</div>
+                <p class="tip-content" id="tipContent">继续保持日常轻量训练，维持你的灵敏反应力！</p>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="btn-group font-center">
+                <button id="restartGameBtn" class="btn btn-primary">重新挑战</button>
+                <button id="shareResultBtn" class="btn btn-share">分享</button>
+                <button id="backToMenuBtn" class="btn btn-secondary">返回首页</button>
+            </div>
+        </section>
+
+        <!-- ================= REPORT DETAIL SCREEN（我的反应力报告） ================= -->
+        <section id="reportScreen" class="screen">
+            <header class="game-header text-center">
+                <h2>我的反应力报告</h2>
+                <p class="report-date" id="reportDate">最近测试</p>
+            </header>
+
+            <div class="card glass-panel rank-card">
+                <div class="rank-title" id="reportRankTitle">🎉反应力等级：A｜稳定在线</div>
+                <div class="rank-tag" id="reportRankTag">稳扎稳打·状态在线</div>
+            </div>
+
+            <div class="card glass-panel interpret-card">
+                <p class="interpret-text" id="reportInterpretText">表现稳定，继续保持可向S级冲刺</p>
+            </div>
+
+            <div class="ability-grid">
+                <div class="card glass-panel ability-card">
+                    <span class="ability-icon">⚡</span>
+                    <span class="ability-name">反应速度</span>
+                    <span class="ability-value" id="reportSpeedVal">948ms</span>
+                    <span class="ability-eval" id="reportSpeedEval">正常</span>
+                </div>
+                <div class="card glass-panel ability-card">
+                    <span class="ability-icon">🎯</span>
+                    <span class="ability-name">判断准确度</span>
+                    <span class="ability-value" id="reportAccuracyVal">95%</span>
+                    <span class="ability-eval" id="reportAccuracyEval">很稳定</span>
+                </div>
+                <div class="card glass-panel ability-card">
+                    <span class="ability-icon">🔄</span>
+                    <span class="ability-name">切换灵活性</span>
+                    <span class="ability-value" id="reportSwitchVal">+55ms</span>
+                    <span class="ability-eval" id="reportSwitchEval">灵活</span>
+                </div>
+                <div class="card glass-panel ability-card">
+                    <span class="ability-icon">🧠</span>
+                    <span class="ability-name">连续专注力</span>
+                    <span class="ability-value" id="reportFocusVal">60题</span>
+                    <span class="ability-eval" id="reportFocusEval">专注力在线</span>
+                </div>
+            </div>
+
+            <div class="card glass-panel sub-data-card">
+                <div class="sub-data-title">📝测试小记</div>
+                <div class="sub-data-row"><span>本局得分</span><span id="reportSubScore">15,000</span></div>
+                <div class="sub-data-row"><span>最高专注峰值</span><span id="reportSubPeak">10x</span></div>
+                <div class="sub-data-row"><span>最快一次反应</span><span id="reportSubFastest">625ms</span></div>
+            </div>
+
+            <div class="card glass-panel tip-card">
+                <div class="tip-title">💡给你的小训练建议</div>
+                <p class="tip-content" id="reportTipContent">继续保持日常轻量训练，维持你的灵敏反应力！</p>
+            </div>
+
+            <div class="btn-group font-center">
+                <button id="reportRetestBtn" class="btn btn-primary">再测一次</button>
+                <button id="reportShareBtn" class="btn btn-share">分享</button>
+                <button id="reportBackBtn" class="btn btn-secondary">返回首页</button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Game Engine script Link -->
+    <script src="game.js"></script>
+</body>
+</html>
