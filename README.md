@@ -2,6 +2,7 @@
 
 > 基于小红书官方 Skill 规范的小工具开发起步模板，含完整小游戏实例与发布指南，帮助开发者用 AI（Vibe Coding）快速创建并上架小红书小工具。
 
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![小红书](https://img.shields.io/badge/平台-小红书-ff2442.svg)](https://www.xiaohongshu.com)
 
@@ -37,6 +38,8 @@
 ```
 xhs-minitool-starter/
 ├── README.md                    # 项目说明（本文件）
+├── CHANGELOG.md                 # 版本变更记录
+├── VERSION                      # 当前版本号（如 1.0.0）
 ├── docs/
 │   └── skill-usage.md           # Skill 详细使用说明书
 ├── .trae/
@@ -149,6 +152,7 @@ grep -rnE "fetch\(|XMLHttpRequest|new WebSocket|eval\(|new Function" . || echo "
 
 ## 📖 相关文档
 
+- [CHANGELOG](./CHANGELOG.md) — 版本变更记录
 - [Skill 使用说明书](./docs/skill-usage.md) — Skill 安装、触发口令、开发工作流、FAQ
 - [Skill 规范](./.trae/skills/xhs-minitool-dev/SKILL.md) — 开发工作流与约束
 - [实例游戏 README](./game/float/README.md) — Float 游戏的玩法与技术说明
