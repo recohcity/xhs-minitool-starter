@@ -1434,3 +1434,277 @@ body {
     .welcome-btns { margin-bottom: 10px; }
     .welcome-btns .btn { font-size: 0.95rem; padding: 11px 18px; }
 }
+
+/* ==========================================================================
+   UI POLISH PASS — 更有吸引力的视觉与反馈效果
+   ========================================================================== */
+
+/* ---- 1. 屏幕切换：柔和上浮淡入，取代生硬的瞬时切换 ---- */
+@keyframes screenEnter {
+    from { opacity: 0; transform: translateY(18px) scale(0.985); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.screen.active {
+    animation: screenEnter 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ---- 2. 背景：光束缓慢扫过 + 氛围气泡上升，让深海更有生命力 ---- */
+@keyframes lightSweep {
+    0%   { transform: skewX(-25deg) translateX(-40%); opacity: 0.5; }
+    50%  { opacity: 1; }
+    100% { transform: skewX(-25deg) translateX(140%); opacity: 0.5; }
+}
+.water-background::before {
+    animation: lightSweep 9s ease-in-out infinite;
+}
+
+.ambient-bubbles {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.bubble {
+    position: absolute;
+    bottom: -60px;
+    left: var(--bx, 50%);
+    width: var(--bs, 10px);
+    height: var(--bs, 10px);
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.65), rgba(255,255,255,0.04) 70%);
+    opacity: 0;
+    animation: bubbleRise var(--bd, 12s) ease-in infinite;
+    animation-delay: var(--bdelay, 0s);
+}
+
+@keyframes bubbleRise {
+    0%   { transform: translateY(0) translateX(0); opacity: 0; }
+    8%   { opacity: var(--bo, 0.35); }
+    88%  { opacity: var(--bo, 0.35); }
+    100% { transform: translateY(-115vh) translateX(24px); opacity: 0; }
+}
+
+/* ---- 3. 按钮：扫光 hover 效果 + 主 CTA 呼吸光晕，引导视线 ---- */
+.btn {
+    position: relative;
+    overflow: hidden;
+}
+
+.btn::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -75%;
+    width: 45%;
+    height: 100%;
+    background: linear-gradient(120deg, transparent, rgba(255,255,255,0.4), transparent);
+    transform: skewX(-20deg);
+    transition: left 0.55s ease;
+    pointer-events: none;
+}
+
+.btn:hover::after {
+    left: 130%;
+}
+
+@keyframes ctaPulseGlow {
+    0%, 100% { box-shadow: 0 4px 15px rgba(242, 114, 12, 0.4), 0 0 0 0 rgba(242, 114, 12, 0.45); }
+    50%      { box-shadow: 0 4px 22px rgba(242, 114, 12, 0.65), 0 0 0 12px rgba(242, 114, 12, 0); }
+}
+
+.btn-cta {
+    animation: ctaPulseGlow 2.4s ease-in-out infinite;
+}
+
+.btn-cta:hover {
+    animation-play-state: paused;
+}
+
+/* ---- 4. Logo：轻微漂浮呼吸感 ---- */
+.logo-icon {
+    animation: logoFloat 3.2s ease-in-out infinite;
+}
+
+@keyframes logoFloat {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50%      { transform: translateY(-6px) rotate(-4deg); }
+}
+
+/* ---- 5. 叶片：按颜色呼吸辉光，动感更强、色彩更跳跃 ---- */
+@keyframes leafGlowPulse {
+    0%, 100% { filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.25)) drop-shadow(0 0 8px var(--leaf-glow-color, rgba(255,255,255,0.3))); }
+    50%      { filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.3)) drop-shadow(0 0 18px var(--leaf-glow-color, rgba(255,255,255,0.55))); }
+}
+
+.leaf-element.green-leaf {
+    --leaf-glow-color: rgba(88, 194, 122, 0.65);
+    animation: leafGlowPulse 1.7s ease-in-out infinite;
+}
+
+.leaf-element.orange-leaf {
+    --leaf-glow-color: rgba(255, 159, 67, 0.65);
+    animation: leafGlowPulse 1.7s ease-in-out infinite;
+}
+
+/* ---- 6. 命中反馈：由静态内发光改为扩散脉冲 ---- */
+@keyframes flashRingCorrect {
+    0%   { box-shadow: inset 0 0 15px var(--theme-success-glow); }
+    100% { box-shadow: inset 0 0 95px var(--theme-success-glow); }
+}
+@keyframes flashRingIncorrect {
+    0%   { box-shadow: inset 0 0 15px var(--theme-error-glow); }
+    100% { box-shadow: inset 0 0 95px var(--theme-error-glow); }
+}
+.flash-overlay.flash-correct   { animation: flashRingCorrect 0.18s ease-out; }
+.flash-overlay.flash-incorrect { animation: flashRingIncorrect 0.18s ease-out; }
+
+/* ---- 7. 得分浮字：答对时在游戏区飘出的 "+分数" ---- */
+.score-popup {
+    position: absolute;
+    left: 50%;
+    top: 34%;
+    font-weight: 800;
+    font-size: 1.5rem;
+    color: #ffe28a;
+    text-shadow: 0 0 10px rgba(251, 191, 36, 0.75), 0 2px 4px rgba(0, 0, 0, 0.4);
+    pointer-events: none;
+    z-index: 6;
+    white-space: nowrap;
+    animation: scorePopupFloat 0.85s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+}
+
+@keyframes scorePopupFloat {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+    18%  { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+    32%  { transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -160%) scale(1); }
+}
+
+/* ---- 8. 连击 / 倍率提升 提示条 ---- */
+.combo-toast {
+    position: absolute;
+    left: 50%;
+    top: 40%;
+    transform: translate(-50%, -50%);
+    z-index: 7;
+    padding: 9px 22px;
+    border-radius: 999px;
+    font-weight: 800;
+    font-size: 1.1rem;
+    color: #ffffff;
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.92), rgba(242, 114, 12, 0.92));
+    box-shadow: 0 0 30px rgba(251, 191, 36, 0.55), 0 8px 20px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+    white-space: nowrap;
+    animation: comboToastPop 0.9s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+}
+
+@keyframes comboToastPop {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.5) rotate(-4deg); }
+    22%  { opacity: 1; transform: translate(-50%, -50%) scale(1.12) rotate(2deg); }
+    38%  { transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+    78%  { opacity: 1; transform: translate(-50%, -58%) scale(1) rotate(0deg); }
+    100% { opacity: 0; transform: translate(-50%, -75%) scale(0.92) rotate(0deg); }
+}
+
+/* ---- 9. 命中粒子爆裂效果 ---- */
+.hit-particle {
+    position: absolute;
+    left: 50%;
+    top: 40%;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--pcolor, #fbbf24);
+    pointer-events: none;
+    z-index: 6;
+    animation: particleBurst 0.6s ease-out forwards;
+}
+
+@keyframes particleBurst {
+    0%   { transform: translate(-50%, -50%) translate(0, 0) scale(1);   opacity: 1; }
+    100% { transform: translate(-50%, -50%) translate(var(--pdx), var(--pdy)) scale(0.25); opacity: 0; }
+}
+
+/* ---- 10. 倍率数字：升级时的弹跳强调 ---- */
+.multiplier-display.burst {
+    animation: multiplierBurst 0.5s ease-out;
+}
+
+@keyframes multiplierBurst {
+    0%   { transform: scale(1); }
+    35%  { transform: scale(1.35); }
+    100% { transform: scale(1); }
+}
+
+/* ---- 11. 倒计时最后 5 秒：数字随心跳放大提醒 ---- */
+.timer-value.critical {
+    color: #ff8a8a;
+    animation: timerCriticalPulse 0.5s ease-in-out infinite;
+}
+
+@keyframes timerCriticalPulse {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.18); }
+}
+
+/* ---- 12. 结算页卡片：依次浮现，带出仪式感 ---- */
+#gameOverScreen.active .rank-card,
+#gameOverScreen.active .interpret-card,
+#gameOverScreen.active .ability-card,
+#gameOverScreen.active .sub-data-card,
+#gameOverScreen.active .tip-card {
+    animation: cardRise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+#gameOverScreen.active .rank-card       { animation-delay: 0.05s; }
+#gameOverScreen.active .interpret-card  { animation-delay: 0.12s; }
+#gameOverScreen.active .ability-card:nth-child(1) { animation-delay: 0.18s; }
+#gameOverScreen.active .ability-card:nth-child(2) { animation-delay: 0.22s; }
+#gameOverScreen.active .ability-card:nth-child(3) { animation-delay: 0.26s; }
+#gameOverScreen.active .ability-card:nth-child(4) { animation-delay: 0.30s; }
+#gameOverScreen.active .sub-data-card   { animation-delay: 0.34s; }
+#gameOverScreen.active .tip-card        { animation-delay: 0.38s; }
+
+@keyframes cardRise {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 等级标题：金色辉光呼吸，突出成就感 */
+.rank-title {
+    animation: rankGlowPulse 2.1s ease-in-out infinite;
+}
+
+@keyframes rankGlowPulse {
+    0%, 100% { text-shadow: 0 0 10px var(--accent-gold-glow); }
+    50%      { text-shadow: 0 0 22px var(--accent-gold-glow), 0 0 40px var(--accent-gold-glow); }
+}
+
+/* ---- 13. 无障碍：尊重"减少动态效果"系统设置 ---- */
+@media (prefers-reduced-motion: reduce) {
+    .screen.active,
+    .water-background::before,
+    .bubble,
+    .btn-cta,
+    .logo-icon,
+    .leaf-element.green-leaf,
+    .leaf-element.orange-leaf,
+    .flash-overlay.flash-correct,
+    .flash-overlay.flash-incorrect,
+    .score-popup,
+    .combo-toast,
+    .hit-particle,
+    .multiplier-display.burst,
+    .timer-value.critical,
+    #gameOverScreen.active .rank-card,
+    #gameOverScreen.active .interpret-card,
+    #gameOverScreen.active .ability-card,
+    #gameOverScreen.active .sub-data-card,
+    #gameOverScreen.active .tip-card,
+    .rank-title {
+        animation: none !important;
+    }
+    .btn::after { transition: none !important; }
+}

@@ -502,9 +502,11 @@ function initGame() {
     gameState.records = [];
     
     scoreDisplay.innerText = '0';
+    scoreDisplay.dataset.raw = '0';
     multiplierDisplay.innerText = '1x';
     updateMultiplierMeterUI();
     timerDisplay.innerText = '60s';
+    timerDisplay.classList.remove('critical');
     timerBarFill.style.width = '100%';
     timerBarFill.classList.remove('warning');
     
@@ -530,6 +532,7 @@ function initGame() {
         // Soft warnings in the final 5 seconds
         if (gameState.timeLeft <= 5) {
             timerBarFill.classList.add('warning');
+            timerDisplay.classList.add('critical');
             if (Math.abs(gameState.timeLeft % 1) < 0.05) {
                 synth.play('tick');
             }
@@ -648,8 +651,11 @@ function processPlayResponse(userInputDir) {
         triggerFlash('correct');
         
         // Multiplier & scoring calculations
-        gameState.score += 50 * gameState.multiplier;
-        scoreDisplay.innerText = gameState.score.toLocaleString();
+        const gained = 50 * gameState.multiplier;
+        gameState.score += gained;
+        animateScoreTo(gameState.score);
+        spawnScorePopup(gained);
+        spawnHitParticles(gameState.currentColor === 'green' ? '#58c27a' : '#ff9f43');
         
         gameState.streak++;
         if (gameState.streak >= 4) {
@@ -659,6 +665,13 @@ function processPlayResponse(userInputDir) {
                 synth.play('levelup');
                 if (gameState.multiplier > gameState.peakMultiplier) {
                     gameState.peakMultiplier = gameState.multiplier;
+                }
+                spawnComboToast(`倍率提升 x${gameState.multiplier}！`);
+                const multiplierWrap = multiplierDisplay.closest('.multiplier-display');
+                if (multiplierWrap) {
+                    multiplierWrap.classList.remove('burst');
+                    void multiplierWrap.offsetWidth;
+                    multiplierWrap.classList.add('burst');
                 }
             }
         }
@@ -691,6 +704,69 @@ function updateMultiplierMeterUI() {
         } else {
             dots[i].classList.remove('active');
         }
+    }
+}
+
+// ── UI 反馈增强：得分数字滚动、飘字、连击提示、命中粒子 ─────────────────────
+
+// 数字滚动到目标分数，取代生硬的瞬时赋值
+function animateScoreTo(newScore) {
+    const start = parseInt(scoreDisplay.dataset.raw || '0', 10);
+    if (start === newScore) {
+        scoreDisplay.innerText = newScore.toLocaleString();
+        scoreDisplay.dataset.raw = String(newScore);
+        return;
+    }
+    const duration = 260;
+    const startTime = performance.now();
+    function tick(now) {
+        const t = Math.min(1, (now - startTime) / duration);
+        const eased = 1 - Math.pow(1 - t, 3);
+        const val = Math.round(start + (newScore - start) * eased);
+        scoreDisplay.innerText = val.toLocaleString();
+        if (t < 1) {
+            requestAnimationFrame(tick);
+        } else {
+            scoreDisplay.dataset.raw = String(newScore);
+        }
+    }
+    requestAnimationFrame(tick);
+}
+
+// 答对时在游戏区中央飘出 "+分数"
+function spawnScorePopup(points) {
+    const el = document.createElement('div');
+    el.className = 'score-popup';
+    el.textContent = `+${points}`;
+    gameBoard.appendChild(el);
+    setTimeout(() => el.remove(), 900);
+}
+
+// 倍率提升时弹出的连击提示条
+function spawnComboToast(text) {
+    const el = document.createElement('div');
+    el.className = 'combo-toast';
+    el.textContent = text;
+    gameBoard.appendChild(el);
+    setTimeout(() => el.remove(), 950);
+}
+
+// 答对时向四周迸发的小粒子
+function spawnHitParticles(color) {
+    const count = 7;
+    for (let i = 0; i < count; i++) {
+        const angle = (Math.PI * 2 * i) / count + Math.random() * 0.4;
+        const dist = 55 + Math.random() * 35;
+        const dx = Math.cos(angle) * dist;
+        const dy = Math.sin(angle) * dist;
+
+        const p = document.createElement('div');
+        p.className = 'hit-particle';
+        p.style.setProperty('--pdx', `${dx}px`);
+        p.style.setProperty('--pdy', `${dy}px`);
+        p.style.setProperty('--pcolor', color);
+        gameBoard.appendChild(p);
+        setTimeout(() => p.remove(), 650);
     }
 }
 

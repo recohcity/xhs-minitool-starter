@@ -21,6 +21,19 @@
             <path d="M0 120 Q360 70 720 120 T1440 120" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="2"/>
         </svg>
 
+        <!-- 氛围气泡：从海底缓缓升起的小光泡，增强"身处深海"的沉浸感 -->
+        <div class="ambient-bubbles" aria-hidden="true">
+            <div class="bubble" style="--bx:8%;  --bs:6px;  --bo:0.25; --bd:11s; --bdelay:-2s;"></div>
+            <div class="bubble" style="--bx:18%; --bs:9px;  --bo:0.3;  --bd:14s; --bdelay:-6s;"></div>
+            <div class="bubble" style="--bx:29%; --bs:5px;  --bo:0.22; --bd:10s; --bdelay:-1s;"></div>
+            <div class="bubble" style="--bx:41%; --bs:8px;  --bo:0.28; --bd:13s; --bdelay:-8s;"></div>
+            <div class="bubble" style="--bx:53%; --bs:6px;  --bo:0.25; --bd:12s; --bdelay:-4s;"></div>
+            <div class="bubble" style="--bx:64%; --bs:10px; --bo:0.32; --bd:15s; --bdelay:-9s;"></div>
+            <div class="bubble" style="--bx:75%; --bs:5px;  --bo:0.2;  --bd:11s; --bdelay:-3s;"></div>
+            <div class="bubble" style="--bx:86%; --bs:7px;  --bo:0.27; --bd:13s; --bdelay:-7s;"></div>
+            <div class="bubble" style="--bx:94%; --bs:6px;  --bo:0.24; --bd:12s; --bdelay:-5s;"></div>
+        </div>
+
         <!-- 透明绿叶：背景纹理，垂直向上无限循环漂浮
              16 片各自独立循环，--delay 均匀分布在整个周期内，
              任意时刻屏幕纵向都有叶子覆盖，无间隙；
@@ -107,7 +120,7 @@
 
             <!-- 操作按钮（垂直排列） -->
             <div class="btn-group welcome-btns">
-                <button id="startGameBtn" class="btn btn-primary">立即挑战</button>
+                <button id="startGameBtn" class="btn btn-primary btn-cta">立即挑战</button>
                 <button id="startTutorialBtn" class="btn btn-secondary">玩法教学</button>
                 <button id="viewReportBtn" class="btn btn-secondary">我的反应力报告</button>
                 <p class="report-hint" id="reportHint" style="display:none;">玩一次游戏就可以看到你的报告！</p>
