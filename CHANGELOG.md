@@ -8,6 +8,11 @@
 ## [Unreleased]
 
 ### Added
+- 暂无待发布内容
+
+## [1.0.1] - 2026-09-02
+
+### Added
 - Float（飘）UI 吸引力专项优化：深海氛围气泡上升 + 光束扫过、Logo 叶片漂浮呼吸、「立即挑战」CTA 呼吸光晕（hover 暂停）
 - 叶片按颜色（绿/橙）呼吸辉光；答对时金色「+分数」飘字 + 粒子迸发 + 得分数字滚动；倍率提升提示条「倍率提升 xN！」+ 数字弹跳
 - 命中反馈由静态内发光改为扩散脉冲；倒计时最后 5 秒数字心跳放大提醒
@@ -15,7 +20,6 @@
 - 屏幕切换柔和上浮淡入；按钮统一 hover 扫光效果
 - 新增 `prefers-reduced-motion` 无障碍适配，尊重系统「减弱动态效果」设置
 - 更新 `dist/` 构建产物与 `release/float_mini_tool.zip` 发布包（含上述全部 UI 改动）
-- 新增合规检查报告 `ui-polish-compliance-report.html`（容器合规 + UI 特性验证 + 业务逻辑未动核查）
 
 ### Changed
 - 得分显示由瞬时跳变改为数字滚动动画（计分规则 `50 × 倍率` 数学不变）
@@ -35,4 +39,5 @@
 - `release/` 发布产物（图标与可直接上传的 zip 包）
 - MIT License
 
+[1.0.1]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.1
 [1.0.0]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.0
