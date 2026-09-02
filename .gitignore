@@ -23,3 +23,6 @@ npm-debug.log*
 
 # 工具状态
 .mimosa/
+
+# 归档目录（不入库）
+archive/
