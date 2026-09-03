@@ -2,7 +2,7 @@
 
 > 基于小红书官方 Skill 规范的小工具开发起步模板，含完整小游戏实例与发布指南，帮助开发者用 AI（Vibe Coding）快速创建并上架小红书小工具。
 
-[![Version](https://img.shields.io/badge/version-1.0.4-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.0.5-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![小红书](https://img.shields.io/badge/平台-小红书-ff2442.svg)](https://www.xiaohongshu.com)
 
@@ -10,7 +10,7 @@
 
 ## ✨ 项目特性
 
-- **官方规范对齐**：基于小红书「小工具容器・能力清单」（minitool-zip-builder v1.2.0），确保产出合规
+- **官方规范对齐**：基于小红书「小工具容器・能力清单」（minitool-zip-builder v1.6.0），确保产出合规
 - **AI 驱动开发**：内置 Skill，支持 Trae / Claude Code / Cursor / Codex 等主流 AI 开发工具
 - **完整实例**：附带 `float` 反应力训练小游戏，从开发到发布全流程可参考
 - **零外部依赖**：纯 HTML/CSS/JS，离线运行，不联网，符合小红书沙箱要求
@@ -39,7 +39,7 @@
 xhs-minitool-starter/
 ├── README.md                    # 项目说明（本文件）
 ├── CHANGELOG.md                 # 版本变更记录
-├── VERSION                      # 当前版本号（如 1.0.4）
+├── VERSION                      # 当前版本号（如 1.0.5）
 ├── docs/
 │   └── skill-usage.md           # Skill 详细使用说明书
 ├── .trae/
@@ -51,6 +51,11 @@ xhs-minitool-starter/
 │               ├── zip-artifact-spec.md
 │               ├── cross-platform-h5.md
 │               └── jsbridge-api.md
+├── .skill/
+│   └── minitool-zip-builder/    # 官方最新 Skill（v1.6.0）
+│       ├── SKILL.md
+│       ├── references/          # 含 css/js-compatibility、performance-budget
+│       └── scripts/             # audit_artifact 审计脚本
 ├── game/
 │   └── float/                   # 实例游戏：反应力训练
 │       ├── index.html

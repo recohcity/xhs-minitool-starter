@@ -10,6 +10,19 @@
 ### Added
 - 暂无待发布内容
 
+## [1.0.5] - 2026-09-03
+
+### Added
+- 安装官方最新 `minitool-zip-builder v1.6.0` skill 到工作区 `.skill/minitool-zip-builder/`（含新增的 `css-compatibility` / `js-compatibility` / `performance-budget` references 与 `audit_artifact` 审计脚本）
+
+### Fixed
+- 按官方 v1.6.0 兼容基线（Chrome 61 / Android 8.1）修复产物：
+  - JS 语法升级到 ES2017（消除 6 处 ES2018+ 语法：可选链、空值合并、对象展开、`\p{...}` 正则），避免旧内核解析失败白屏
+  - CSS 兼容：3 处 `inset` 简写改物理属性、3 处 `max()` 加 Chrome 61 基线值、14 处 Flex `gap` 采用「行为检测 `.supports-flex-gap` + 相邻子项 margin 基线」（Chrome 61 下间距不丢失）
+
+### Changed
+- 更新 `dist/` 构建产物并重建 `release/float_mini_tool.zip` 发布包（含上述兼容性修复）
+
 ## [1.0.4] - 2026-09-03
 
 ### Fixed
@@ -77,6 +90,7 @@
 - `release/` 发布产物（图标与可直接上传的 zip 包）
 - MIT License
 
+[1.0.5]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.5
 [1.0.4]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.4
 [1.0.3]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.3
 [1.0.2]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.2
