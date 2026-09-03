@@ -1,9 +1,9 @@
-# xhs-minitool-dev 使用说明书
+# minitool-zip-builder 使用说明书
 
 用 AI 开发工具（Trae / Claude Code / Cursor / Codex 等）+ 本 skill，把一个创意变成可发布到小红书「Builder hub → 小工具」的合规 zip 包。
 
 > 适用读者：想用 AI（Vibe Coding）开发小红书小工具的创作者 / 开发者。
-> 规范来源：小红书官方「小工具容器・能力清单」（minitool-zip-builder v1.2.0）。
+> 规范来源：小红书官方「小工具容器・能力清单」（minitool-zip-builder v1.6.0，随官方不定期更新）。
 
 ---
 
@@ -42,7 +42,7 @@
 
 ```bash
 # ① 把 skill 复制到你的项目（以 Trae 为例，其他工具见第 3 节）
-cp -r .trae/skills/xhs-minitool-dev  你的项目/.trae/skills/
+cp -r .skill/minitool-zip-builder  你的项目/.trae/skills/
 
 # ② 用 AI 工具打开你的项目，发一句口令（见第 4 节）
 #    例如：帮我开发一个"英语单词消消乐"小红书小工具并打包成 zip
@@ -54,32 +54,32 @@ cp -r .trae/skills/xhs-minitool-dev  你的项目/.trae/skills/
 
 ## 3. 安装到主流 AI 开发工具
 
-Skill 就是一个文件夹（`SKILL.md` + `references/`），把它复制到对应工具的 skills 目录即可。本仓库中的源路径：`.trae/skills/xhs-minitool-dev/`。
+Skill 就是一个文件夹（`SKILL.md` + `references/` + `scripts/`），把它复制到对应工具的 skills 目录即可。本仓库中的源路径：`.skill/minitool-zip-builder/`。
 
 | AI 工具 | 项目级安装路径（推荐） | 用户级（全局所有项目可用） |
 | --- | --- | --- |
-| **Trae** | `<项目>/.trae/skills/xhs-minitool-dev/` | — |
-| **Claude Code** | `<项目>/.claude/skills/xhs-minitool-dev/` | `~/.claude/skills/xhs-minitool-dev/` |
-| **Cursor** | `<项目>/.cursor/skills/xhs-minitool-dev/`（或按官方指引放 `.claude/skills/`） | — |
-| **Codex CLI** | `<项目>/.codex/skills/xhs-minitool-dev/` | `~/.codex/skills/xhs-minitool-dev/` |
-| **其他 Agent** | `<项目>/.skill/xhs-minitool-dev/`（官方通用约定） | — |
+| **Trae** | `<项目>/.trae/skills/minitool-zip-builder/` | — |
+| **Claude Code** | `<项目>/.claude/skills/minitool-zip-builder/` | `~/.claude/skills/minitool-zip-builder/` |
+| **Cursor** | `<项目>/.cursor/skills/minitool-zip-builder/`（或按官方指引放 `.claude/skills/`） | — |
+| **Codex CLI** | `<项目>/.codex/skills/minitool-zip-builder/` | `~/.codex/skills/minitool-zip-builder/` |
+| **其他 Agent** | `<项目>/.skill/minitool-zip-builder/`（官方通用约定） | — |
 
 安装示例：
 
 ```bash
 # Claude Code
-mkdir -p .claude/skills && cp -r .trae/skills/xhs-minitool-dev .claude/skills/
+mkdir -p .claude/skills && cp -r .skill/minitool-zip-builder .claude/skills/
 
 # Cursor
-mkdir -p .cursor/skills && cp -r .trae/skills/xhs-minitool-dev .cursor/skills/
+mkdir -p .cursor/skills && cp -r .skill/minitool-zip-builder .cursor/skills/
 
 # Codex
-mkdir -p .codex/skills && cp -r .trae/skills/xhs-minitool-dev .codex/skills/
+mkdir -p .codex/skills && cp -r .skill/minitool-zip-builder .codex/skills/
 ```
 
-安装后校验：目录内应有 5 个文件——`SKILL.md`、`references/device-capabilities.md`、`references/zip-artifact-spec.md`、`references/cross-platform-h5.md`、`references/jsbridge-api.md`。**references 必须随 SKILL.md 一起复制**，skill 工作流依赖它们。
+安装后校验：目录内应有 `SKILL.md`、`references/`（官方 7 份规范 + 项目沉淀 `optimization-experience.md`）与 `scripts/`（`audit_artifact` 审计脚本）。**references 与 scripts 必须随 SKILL.md 一起复制**，skill 工作流依赖它们。
 
-> 若你的工具不支持自动识别 skills：直接在对话里让 AI「先读取 `.trae/skills/xhs-minitool-dev/SKILL.md` 并严格按其工作流执行」，效果等同。
+> 若你的工具不支持自动识别 skills：直接在对话里让 AI「先读取 `.skill/minitool-zip-builder/SKILL.md` 并严格按其工作流执行」，效果等同。
 
 ---
 
@@ -89,7 +89,7 @@ mkdir -p .codex/skills && cp -r .trae/skills/xhs-minitool-dev .codex/skills/
 
 ```
 帮我开发一个小红书小工具：<一句话描述功能与玩法>。
-按 xhs-minitool-dev skill 的规范开发，完成后打包成可上传的 zip，输出校验摘要和产物路径。
+按 minitool-zip-builder skill 的规范开发，完成后打包成可上传的 zip，输出校验摘要和产物路径。
 ```
 
 示例：
@@ -97,14 +97,14 @@ mkdir -p .codex/skills && cp -r .trae/skills/xhs-minitool-dev .codex/skills/
 ```
 帮我开发一个小红书小工具：看图选拼音练习，随机展示包内图片，
 点选正确拼音得分，支持本地最高分记录。
-按 xhs-minitool-dev skill 的规范开发，完成后打包成 zip，输出校验摘要和产物路径。
+按 minitool-zip-builder skill 的规范开发，完成后打包成 zip，输出校验摘要和产物路径。
 ```
 
 ### 场景 B：把已有 H5 改写为小工具
 
 ```
 把当前目录的 H5 页面改写为符合小红书小工具规范的离线包并打包：
-按 xhs-minitool-dev skill 执行——先扫描被禁能力和行为并替换，
+按 minitool-zip-builder skill 执行——先扫描被禁能力和行为并替换，
 仅替换被禁能力、不改其余业务逻辑，最后打包成 zip 并给出自检结果。
 ```
 
@@ -112,7 +112,7 @@ mkdir -p .codex/skills && cp -r .trae/skills/xhs-minitool-dev .codex/skills/
 
 ```
 我的小工具 zip 上传小红书后部署失败。产物在 ./dist，
-按 xhs-minitool-dev skill 的 zip-artifact-spec 与 device-capabilities
+按 minitool-zip-builder skill 的 zip-artifact-spec 与 device-capabilities
 逐项检查（zip 根目录、内联脚本、外部资源、禁用 API），列出问题并修复后重新打包。
 ```
 
@@ -122,7 +122,7 @@ mkdir -p .codex/skills && cp -r .trae/skills/xhs-minitool-dev .codex/skills/
 
 ## 5. Skill 内置开发工作流
 
-AI 严格执行以下 5 步（每步先读对应 reference，不凭记忆产出）：
+AI 严格执行官方 v1.6.0 的 7 步流程（每步先读对应 reference，不凭记忆产出）：
 
 ```
 ① 编写/适配 HTML ──► 读 zip-artifact-spec.md
@@ -131,14 +131,22 @@ AI 严格执行以下 5 步（每步先读对应 reference，不凭记忆产出�
 ② 端能力合规 ──────► 读 device-capabilities.md
    对照「不可用能力/行为」逐项扫描，移除或改用替代写法
 
-③ 跨端适配 ────────► 读 cross-platform-h5.md
+③ Native 能力 ─────► 读 jsbridge-api.md
+   仅用 window.xhs.miniTool.* 列出的 API，参数以文档为准
+
+④ JS 兼容性 ───────► 读 js-compatibility.md
+   Chrome 61 / ES2017 基线；新语法须构建转译，新 API 能力检测
+
+⑤ CSS 兼容性 ──────► 读 css-compatibility.md
+   Chrome 61 基线层 + 能力检测增强层（Flex gap 等行为检测）
+
+⑥ 跨端适配 ────────► 读 cross-platform-h5.md
    Pointer Events 统一交互、安全区 env()、PC 模拟器 vs 真机差异
 
-④ 改写正确性自查
-   被禁 API 无残留、脚本加载顺序正确、引用资源都在 zip 内、未误改业务逻辑
-
-⑤ 打包
-   逐条核对各 reference 自检清单 → 全部通过 → 打 zip → 输出校验摘要和路径
+⑦ 正确性自查 + 性能 ─► 读 zip-artifact-spec / performance-budget.md
+   被禁 API 无残留、引用资源都在 zip 内、体积门禁（zip ≤10MiB）
+   → 运行 audit_artifact 审计脚本 → 逐条核对自检清单 → 打 zip
+   → 输出校验摘要和路径
 ```
 
 推荐项目结构（AI 会按此生成）：
@@ -263,7 +271,7 @@ unzip -l tool.zip | grep -E "node_modules|\.DS_Store|\.map|config\."
 不能引外部 CDN，但可以把框架文件下载后打进 zip 用相对路径引用（注意体积，小工具推荐原生 JS 保持轻量）。
 
 **Q9：官方规范更新了怎么办？**
-Skill 头部标注了规范版本（1.2.0）。官方包地址：`https://fe-static.xhscdn.com/mini-tool/1.2.0/minitool-zip-builder.zip`（版本号可能升级，以 Builder hub 文档页为准），可下载最新版对照更新 skill 内容。
+Skill 头部标注了规范版本（当前 v1.6.0）。官方 skill 会不定期更新，发布地址形如 `https://fe-static.xhscdn.com/mini-tool/<时间戳>/minitool-zip-builder-<版本>.skill`（具体以 Builder hub 文档页为准）。更新流程：下载最新 `.skill` 包 → 解压覆盖 `.skill/minitool-zip-builder/` → **保留项目沉淀文档 `references/optimization-experience.md`（若被覆盖则从 git 历史恢复）** → 按新版本自检清单重新校验产物。
 
 ---
 
@@ -271,8 +279,13 @@ Skill 头部标注了规范版本（1.2.0）。官方包地址：`https://fe-sta
 
 | 文件 | 作用 |
 | --- | --- |
-| `SKILL.md` | 入口：触发条件、五条铁律、工作流调度、能力速览 |
+| `SKILL.md` | 入口：触发条件、工作流调度、Reference 索引 |
 | `references/device-capabilities.md` | 能力清单：可用/不可用 API 与行为、替代写法、改写扫描清单 |
 | `references/zip-artifact-spec.md` | ZIP 构建规范：目录结构、CSP 资源规则、index.html 模板、打包自检 |
+| `references/js-compatibility.md` | JS 兼容基线（Chrome 61 / ES2017）：语法与 API 分级、转译/检测要求 |
+| `references/css-compatibility.md` | CSS 兼容基线 + 增强：Flex gap 等行为检测双路径写法 |
+| `references/performance-budget.md` | 体积门禁：zip ≤10MiB、Base64 解码 ≤1MiB 等性能预算 |
 | `references/cross-platform-h5.md` | 跨端适配：触摸、滚动、安全区、PC 模拟器 vs 真机 |
 | `references/jsbridge-api.md` | JSBridge API 规范：`window.xhs.miniTool.*` 调用约定与可用接口 |
+| `references/optimization-experience.md` | **项目沉淀经验**（持续生长）：UI 优化/分享卡/真机适配/兼容修复的可复用模式、代码片段与验证方法 |
+| `scripts/audit_artifact.mjs` / `.py` | 官方审计脚本：对产物目录 / zip 做体积与结构门禁校验 |

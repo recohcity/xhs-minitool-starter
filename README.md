@@ -42,19 +42,18 @@ xhs-minitool-starter/
 ├── VERSION                      # 当前版本号（如 1.0.5）
 ├── docs/
 │   └── skill-usage.md           # Skill 详细使用说明书
-├── .trae/
-│   └── skills/
-│       └── xhs-minitool-dev/    # 小红书小工具开发 Skill（核心资产）
-│           ├── SKILL.md
-│           └── references/
-│               ├── device-capabilities.md
-│               ├── zip-artifact-spec.md
-│               ├── cross-platform-h5.md
-│               └── jsbridge-api.md
 ├── .skill/
-│   └── minitool-zip-builder/    # 官方最新 Skill（v1.6.0）
+│   └── minitool-zip-builder/    # 小红书小工具开发 Skill（唯一核心资产，官方最新 v1.6.0）
 │       ├── SKILL.md
-│       ├── references/          # 含 css/js-compatibility、performance-budget
+│       ├── references/          # 官方规范 + 本项目沉淀经验（optimization-experience.md）
+│       │   ├── device-capabilities.md
+│       │   ├── zip-artifact-spec.md
+│       │   ├── cross-platform-h5.md
+│       │   ├── jsbridge-api.md
+│       │   ├── js-compatibility.md
+│       │   ├── css-compatibility.md
+│       │   ├── performance-budget.md
+│       │   └── optimization-experience.md
 │       └── scripts/             # audit_artifact 审计脚本
 ├── game/
 │   └── float/                   # 实例游戏：反应力训练
@@ -75,20 +74,20 @@ xhs-minitool-starter/
 
 ### 1. 安装 Skill 到你的 AI 开发工具
 
-Skill 位于 `.trae/skills/xhs-minitool-dev/`，复制到对应工具的 skills 目录即可：
+Skill 位于 `.skill/minitool-zip-builder/`，复制到对应工具的 skills 目录即可：
 
 ```bash
 # Claude Code
-mkdir -p .claude/skills && cp -r .trae/skills/xhs-minitool-dev .claude/skills/
+mkdir -p .claude/skills && cp -r .skill/minitool-zip-builder .claude/skills/
 
 # Cursor
-mkdir -p .cursor/skills && cp -r .trae/skills/xhs-minitool-dev .cursor/skills/
+mkdir -p .cursor/skills && cp -r .skill/minitool-zip-builder .cursor/skills/
 
 # Trae
-mkdir -p .trae/skills && cp -r .trae/skills/xhs-minitool-dev .trae/skills/
+mkdir -p .trae/skills && cp -r .skill/minitool-zip-builder .trae/skills/
 
 # Codex CLI
-mkdir -p .codex/skills && cp -r .trae/skills/xhs-minitool-dev .codex/skills/
+mkdir -p .codex/skills && cp -r .skill/minitool-zip-builder .codex/skills/
 ```
 
 ### 2. 用 AI 开发你的小工具
@@ -125,7 +124,7 @@ Skill 会自动：
 | **包体积** | zip < 5MB，单资源 < 2MB |
 | **分享** | 通过 `window.xhs.miniTool.postNote()` 生成分享笔记 |
 
-完整规范见 `.trae/skills/xhs-minitool-dev/references/`。
+完整规范见 `.skill/minitool-zip-builder/references/`。
 
 ---
 
@@ -159,7 +158,7 @@ grep -rnE "fetch\(|XMLHttpRequest|new WebSocket|eval\(|new Function" . || echo "
 
 - [CHANGELOG](./CHANGELOG.md) — 版本变更记录
 - [Skill 使用说明书](./docs/skill-usage.md) — Skill 安装、触发口令、开发工作流、FAQ
-- [Skill 规范](./.trae/skills/xhs-minitool-dev/SKILL.md) — 开发工作流与约束
+- [Skill 规范](./.skill/minitool-zip-builder/SKILL.md) — 开发工作流与约束
 - [实例游戏 README](./game/float/README.md) — Float 游戏的玩法与技术说明
 
 ---
