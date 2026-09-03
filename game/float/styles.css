@@ -178,7 +178,8 @@ body {
     height: 100%;
     max-height: 100%;
     overflow: hidden; /* 防止任何横向溢出导致左右拖动 */
-    padding: 15px 15px max(15px, env(safe-area-inset-bottom));
+    padding: 15px 15px 15px; /* Chrome 61 基线 */
+    padding-bottom: max(15px, env(safe-area-inset-bottom)); /* 新内核增强 */
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -424,7 +425,8 @@ h3 {
     max-width: 320px;
     gap: 10px;
     margin-top: 28px;
-    margin-bottom: max(14px, env(safe-area-inset-bottom));
+    margin-bottom: 14px; /* Chrome 61 基线 */
+    margin-bottom: max(14px, env(safe-area-inset-bottom)); /* 新内核增强 */
 }
 
 .welcome-btns .btn {
@@ -951,7 +953,10 @@ body {
 .rank-badge::before {
     content: '';
     position: absolute;
-    inset: -3px;
+    top: -3px;
+    right: -3px;
+    bottom: -3px;
+    left: -3px;
     border-radius: 50%;
     background: conic-gradient(from 0deg, var(--rank-ring-a), var(--rank-ring-b), var(--rank-ring-a));
     z-index: -1;
@@ -960,7 +965,10 @@ body {
 .rank-badge::after {
     content: '';
     position: absolute;
-    inset: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
     border-radius: 50%;
     box-shadow: 0 0 26px var(--rank-glow);
     animation: rankBadgeGlowPulse 2.2s ease-in-out infinite;
@@ -1203,7 +1211,8 @@ body {
 #reportScreen .btn-group {
     flex-wrap: nowrap;
     gap: 10px;
-    margin-bottom: max(8px, env(safe-area-inset-bottom));
+    margin-bottom: 8px; /* Chrome 61 基线 */
+    margin-bottom: max(8px, env(safe-area-inset-bottom)); /* 新内核增强 */
 }
 
 #gameOverScreen .btn-group .btn,
@@ -1275,7 +1284,10 @@ body {
 
 .ambient-bubbles {
     position: absolute;
-    inset: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
     overflow: hidden;
     pointer-events: none;
 }
@@ -1525,3 +1537,59 @@ body {
     }
     .btn::after { transition: none !important; }
 }
+
+/* ==========================================================================
+   Chrome 61 兼容：Flex gap 基线层 + 能力检测增强层
+   基线用相邻子项 margin 补偿间距（Chrome 61 支持 margin）；检测到 Flex gap
+   生效后（<html>.supports-flex-gap，见 game.js detectFlexGap）启用 gap 并清除 margin。
+   ========================================================================== */
+/* ---- row 容器基线（相邻子项左间距） ---- */
+.btn-group > * + * { margin-left: 15px; }
+.logo-area > * + * { margin-left: 15px; }
+.practice-progress > * + * { margin-left: 12px; }
+.meter-dots > * + * { margin-left: 6px; }
+.playing-footer > * + * { margin-left: 12px; }
+.rank-title > * + * { margin-left: 8px; }
+.interpret-text > * + * { margin-left: 6px; }
+.ability-card > * + * { margin-left: 12px; }
+.tip-banner > * + * { margin-left: 12px; }
+#gameOverScreen .btn-group > * + *,
+#reportScreen .btn-group > * + * { margin-left: 10px; }
+
+/* ---- column 容器基线（相邻子项上间距） ---- */
+.welcome-btns > * + * { margin-top: 10px; }
+.ability-grid > * + * { margin-top: 8px; }
+.ability-text > * + * { margin-top: 2px; }
+.sub-data-item > * + * { margin-top: 3px; }
+
+/* ---- 增强层：Flex gap 生效时启用 gap、清除 margin 基线 ---- */
+.supports-flex-gap .btn-group { gap: 15px; }
+.supports-flex-gap .btn-group > * + * { margin-left: 0; }
+.supports-flex-gap .logo-area { gap: 15px; }
+.supports-flex-gap .logo-area > * + * { margin-left: 0; }
+.supports-flex-gap .welcome-btns { gap: 10px; }
+.supports-flex-gap .welcome-btns > * + * { margin-top: 0; }
+.supports-flex-gap .practice-progress { gap: 12px; }
+.supports-flex-gap .practice-progress > * + * { margin-left: 0; }
+.supports-flex-gap .meter-dots { gap: 6px; }
+.supports-flex-gap .meter-dots > * + * { margin-left: 0; }
+.supports-flex-gap .playing-footer { gap: 12px; }
+.supports-flex-gap .playing-footer > * + * { margin-left: 0; }
+.supports-flex-gap .rank-title { gap: 8px; }
+.supports-flex-gap .rank-title > * + * { margin-left: 0; }
+.supports-flex-gap .interpret-text { gap: 6px; }
+.supports-flex-gap .interpret-text > * + * { margin-left: 0; }
+.supports-flex-gap .ability-grid { gap: 8px; }
+.supports-flex-gap .ability-grid > * + * { margin-top: 0; }
+.supports-flex-gap .ability-card { gap: 12px; }
+.supports-flex-gap .ability-card > * + * { margin-left: 0; }
+.supports-flex-gap .ability-text { gap: 2px; }
+.supports-flex-gap .ability-text > * + * { margin-top: 0; }
+.supports-flex-gap .sub-data-item { gap: 3px; }
+.supports-flex-gap .sub-data-item > * + * { margin-top: 0; }
+.supports-flex-gap .tip-banner { gap: 12px; }
+.supports-flex-gap .tip-banner > * + * { margin-left: 0; }
+.supports-flex-gap #gameOverScreen .btn-group,
+.supports-flex-gap #reportScreen .btn-group { gap: 10px; }
+.supports-flex-gap #gameOverScreen .btn-group > * + *,
+.supports-flex-gap #reportScreen .btn-group > * + * { margin-left: 0; }

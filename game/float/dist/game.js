@@ -1026,10 +1026,9 @@ function endGame() {
 
     // 保存最近一次完整报告到 localStorage（供首页"我的反应力报告"查看）
     try {
-        const reportToSave = {
-            ...shareSnapshot,
+        const reportToSave = Object.assign({}, shareSnapshot, {
             date: new Date().toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-        };
+        });
         localStorage.setItem('float_last_report', JSON.stringify(reportToSave));
     } catch (e) {
         console.warn('save report failed:', e);
@@ -1043,7 +1042,8 @@ function endGame() {
 
 // 彻底去除字符串中的系统表情（兼容历史 localStorage 中旧代码写入的带 emoji 文案）
 function stripEmoji(str) {
-    return String(str == null ? '' : str).replace(/\p{Extended_Pictographic}/gu, '');
+    // 去除系统表情（Chrome 61 不支持 \p{Extended_Pictographic}，改用码点区间覆盖主要 emoji 区块）
+    return String(str == null ? '' : str).replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}\u{1F1E6}-\u{1F1FF}]/gu, '');
 }
 
 // 清洗整份报告数据中所有字符串字段（rankTitle/slogan/interpretText/tipContent 等）
@@ -1400,7 +1400,7 @@ function handleShare(btn, snapshot) {
 // 通用分享函数：使用已预渲染的分享图，直接同步调用小红书 postNote
 // 若首次调用被容器吞掉（fail），自动补一次，把「点两次」变为「点一次 + 自动补」
 async function shareReport(snapshot, _retried) {
-    const miniTool = window.xhs?.miniTool;
+    const miniTool = window.xhs && window.xhs.miniTool;
     if (!snapshot || !miniTool || !snapshot.shareImageDataUrl) return;
     try {
         await miniTool.postNote({
@@ -1408,8 +1408,8 @@ async function shareReport(snapshot, _retried) {
             content:
                 '60秒挑战完成！来看看我的反应力报告\n' +
                 (snapshot.slogan || '') + '\n' +
-                `反应力等级：${snapshot.rank ?? snapshot.rankLetter ?? ''}｜反应速度：${snapshot.avgRt ?? snapshot.speedValue ?? ''}\n` +
-                `判断准确度：${snapshot.accuracy ?? snapshot.accuracyValue ?? ''}%｜切换灵活性：${snapshot.switchEval || ''}\n` +
+                `反应力等级：${(snapshot.rank != null ? snapshot.rank : snapshot.rankLetter) || ''}｜反应速度：${(snapshot.avgRt != null ? snapshot.avgRt : snapshot.speedValue) || ''}\n` +
+                `判断准确度：${(snapshot.accuracy != null ? snapshot.accuracy : snapshot.accuracyValue) || ''}%｜切换灵活性：${snapshot.switchEval || ''}\n` +
                 '点击下方小红书小工具：飘， 测一下你的反应力',
             pageType: 'photo_publish',
             mediaInfo: { image_resources: [{ url: snapshot.shareImageDataUrl }] }
@@ -1433,7 +1433,7 @@ if (btnShareResult) {
 
 // 非小红书容器环境：结算页和报告页不显示分享按钮
 function ensureShareButton() {
-    const inMiniTool = !!window.xhs?.miniTool;
+    const inMiniTool = !!window.xhs && !!window.xhs.miniTool;
     if (btnShareResult) btnShareResult.style.display = inMiniTool ? '' : 'none';
     if (reportShareBtn) reportShareBtn.style.display = inMiniTool ? '' : 'none';
 }
@@ -1852,3 +1852,22 @@ window.getGameState = function() {
 window.simulateKeyInput = function(dir) {
     handleInput(dir);
 };
+
+// ── Chrome 61 兼容：Flex gap 行为检测 ────────────────────────────────────
+// Chrome 61 支持 Grid gap 但不支持 Flexbox gap。用「实际创建 flex 容器并测量」的方式
+// 检测，通过后给 <html> 加 .supports-flex-gap，由 CSS 启用 gap 并清除 margin 基线。
+(function detectFlexGap() {
+    if (typeof document === 'undefined' || !document.createElement) return;
+    var flex = document.createElement('div');
+    flex.style.position = 'absolute';
+    flex.style.visibility = 'hidden';
+    flex.style.display = 'flex';
+    flex.style.flexDirection = 'column';
+    flex.style.rowGap = '1px';
+    flex.appendChild(document.createElement('div'));
+    flex.appendChild(document.createElement('div'));
+    document.body.appendChild(flex);
+    var supported = flex.scrollHeight === 1;
+    flex.parentNode.removeChild(flex);
+    if (supported) document.documentElement.className += ' supports-flex-gap';
+})();
