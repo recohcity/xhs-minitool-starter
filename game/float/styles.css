@@ -284,6 +284,12 @@ h3 {
     box-shadow: none !important;
 }
 
+/* 分享进行中：仅视觉降透明度 + 拦截重复点击（不写 disabled / 不改文本，避免强制重排拖慢首次手势） */
+.btn.is-sharing {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
 .btn-primary {
     background: linear-gradient(135deg, #ff7b25 0%, #f2720c 100%);
     color: #ffffff;
@@ -886,19 +892,19 @@ body {
 
 #gameOverScreen .game-header,
 #reportScreen .game-header {
-    margin-bottom: 14px;
+    margin-bottom: 10px;
 }
 
 #gameOverScreen .game-header h2,
 #reportScreen .game-header h2 {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     margin-bottom: 0;
 }
 
 .report-date {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--text-muted);
-    margin-top: 4px;
+    margin-top: 3px;
 }
 
 /* ---- 等级徽章：整页视觉焦点 ---- */
@@ -932,13 +938,13 @@ body {
 
 .rank-badge {
     position: relative;
-    width: 108px;
-    height: 108px;
+    width: 92px;
+    height: 92px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
     background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.02) 70%);
 }
 
@@ -961,7 +967,7 @@ body {
 }
 
 .rank-badge-letter {
-    font-size: 2.7rem;
+    font-size: 2.5rem;
     font-weight: 900;
     color: #ffffff;
     text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
@@ -977,23 +983,23 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-size: 1.28rem;
+    font-size: 1.16rem;
     font-weight: 800;
     color: #ffffff;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
     letter-spacing: 0.2px;
 }
 
 /* 等级标题前的线描图标：与四维能力同风格，随等级取强调色 */
 .rank-title-icon {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     color: var(--rank-text);
     flex-shrink: 0;
 }
 
 .rank-tag {
-    font-size: 0.92rem;
+    font-size: 0.86rem;
     font-weight: 600;
     color: var(--rank-text);
     letter-spacing: 0.4px;
@@ -1007,12 +1013,12 @@ body {
     gap: 6px;
     width: 100%;
     max-width: 460px;
-    font-size: 0.95rem;
-    line-height: 1.6;
+    font-size: 0.92rem;
+    line-height: 1.55;
     color: var(--text-secondary);
     text-align: center;
-    padding: 4px 20px 0;
-    margin-bottom: 6px;
+    padding: 2px 20px 0;
+    margin-bottom: 3px;
 }
 
 .interpret-spark {
@@ -1030,25 +1036,25 @@ body {
     letter-spacing: 2px;
     text-transform: uppercase;
     color: var(--text-muted);
-    margin: 22px 2px 10px;
+    margin: 12px 2px 6px;
 }
 
 /* ---- 四大能力：竖排信息条，而非四个孤立方框 ---- */
 .ability-grid {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
     width: 100%;
-    margin-bottom: 4px;
+    margin-bottom: 1px;
 }
 
 .ability-card {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
     width: 100%;
-    padding: 13px 16px;
-    border-radius: 16px;
+    padding: 10px 14px;
+    border-radius: 14px;
     background: rgba(255, 255, 255, 0.045);
     border: 1px solid rgba(255, 255, 255, 0.07);
     border-left: 3px solid var(--ability-accent, #ffffff);
@@ -1061,8 +1067,8 @@ body {
 
 .ability-icon-wrap {
     flex-shrink: 0;
-    width: 38px;
-    height: 38px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -1075,8 +1081,8 @@ body {
 .ability-focus    .ability-icon-wrap { background: rgba(251, 191, 36, 0.18); }
 
 .ability-icon {
-    width: 19px;
-    height: 19px;
+    width: 17px;
+    height: 17px;
     color: var(--ability-accent, #ffffff);
     flex-shrink: 0;
 }
@@ -1085,25 +1091,25 @@ body {
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 2px;
     min-width: 0;
 }
 
 .ability-name {
-    font-size: 0.88rem;
+    font-size: 0.84rem;
     font-weight: 600;
     color: var(--text-secondary);
 }
 
 .ability-eval {
-    font-size: 0.76rem;
+    font-size: 0.72rem;
     font-weight: 700;
     color: var(--ability-accent, var(--theme-success));
 }
 
 .ability-value {
     flex-shrink: 0;
-    font-size: 1.32rem;
+    font-size: 1.18rem;
     font-weight: 800;
     color: #ffffff;
     font-variant-numeric: tabular-nums;
@@ -1116,8 +1122,8 @@ body {
     align-items: stretch;
     justify-content: space-around;
     width: 100%;
-    padding: 2px 8px 4px;
-    margin-bottom: 4px;
+    padding: 0 8px 1px;
+    margin-bottom: 1px;
 }
 
 .sub-data-item {
@@ -1125,7 +1131,7 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 5px;
+    gap: 3px;
     padding: 0 6px;
 }
 
@@ -1134,7 +1140,7 @@ body {
 }
 
 .sub-data-val {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     font-weight: 800;
     color: #ffffff;
     font-variant-numeric: tabular-nums;
@@ -1142,7 +1148,7 @@ body {
 }
 
 .sub-data-key {
-    font-size: 0.74rem;
+    font-size: 0.7rem;
     color: var(--text-muted);
     letter-spacing: 0.3px;
     white-space: nowrap;
@@ -1156,9 +1162,9 @@ body {
     width: 100%;
     background: rgba(16, 185, 129, 0.08);
     border: 1px solid rgba(16, 185, 129, 0.18);
-    border-radius: 18px;
-    padding: 14px 16px;
-    margin-bottom: 20px;
+    border-radius: 16px;
+    padding: 11px 14px;
+    margin-bottom: 14px;
 }
 
 .tip-icon {
@@ -1170,8 +1176,8 @@ body {
 
 /* 训练建议灯泡：线描风格，与四维能力图标同源 */
 .tip-icon-svg {
-    width: 22px;
-    height: 22px;
+    width: 19px;
+    height: 19px;
     color: var(--theme-success);
 }
 
@@ -1180,15 +1186,15 @@ body {
 }
 
 .tip-title {
-    font-size: 0.9rem;
+    font-size: 0.84rem;
     font-weight: 700;
     color: var(--theme-success);
-    margin-bottom: 4px;
+    margin-bottom: 3px;
 }
 
 .tip-content {
-    font-size: 0.87rem;
-    line-height: 1.55;
+    font-size: 0.83rem;
+    line-height: 1.5;
     color: var(--text-secondary);
 }
 
@@ -1197,45 +1203,45 @@ body {
 #reportScreen .btn-group {
     flex-wrap: nowrap;
     gap: 10px;
-    margin-bottom: max(10px, env(safe-area-inset-bottom));
+    margin-bottom: max(8px, env(safe-area-inset-bottom));
 }
 
 #gameOverScreen .btn-group .btn,
 #reportScreen .btn-group .btn {
     flex: 1 1 0;
     min-width: 0;
-    font-size: 0.92rem;
-    padding: 12px 8px;
-    min-height: 44px;
+    font-size: 0.88rem;
+    padding: 9px 8px;
+    min-height: 42px;
     white-space: nowrap;
 }
 
 /* ---- 移动端适配 ---- */
 @media (max-width: 480px) {
     #gameOverScreen .game-header h2,
-    #reportScreen .game-header h2 { font-size: 1.25rem; }
-    .rank-badge { width: 92px; height: 92px; margin-bottom: 12px; }
-    .rank-badge-letter { font-size: 2.3rem; }
-    .rank-title { font-size: 1.1rem; }
-    .rank-title-icon { width: 17px; height: 17px; }
-    .rank-tag { font-size: 0.82rem; }
-    .interpret-text { font-size: 0.86rem; padding: 4px 8px 0; }
+    #reportScreen .game-header h2 { font-size: 1.15rem; }
+    .rank-badge { width: 78px; height: 78px; margin-bottom: 7px; }
+    .rank-badge-letter { font-size: 2.0rem; }
+    .rank-title { font-size: 1.04rem; }
+    .rank-title-icon { width: 16px; height: 16px; }
+    .rank-tag { font-size: 0.79rem; }
+    .interpret-text { font-size: 0.83rem; padding: 3px 8px 0; }
     .interpret-spark { width: 12px; height: 12px; }
-    .section-label { margin: 18px 2px 8px; }
-    .ability-card { padding: 11px 13px; gap: 11px; }
-    .ability-icon-wrap { width: 34px; height: 34px; }
-    .ability-icon { width: 17px; height: 17px; }
-    .ability-name { font-size: 0.82rem; }
-    .ability-eval { font-size: 0.72rem; }
-    .ability-value { font-size: 1.15rem; }
-    .sub-data-val { font-size: 1.1rem; }
-    .sub-data-key { font-size: 0.68rem; }
-    .tip-banner { padding: 12px 14px; }
-    .tip-icon-svg { width: 19px; height: 19px; }
-    .tip-title { font-size: 0.85rem; }
-    .tip-content { font-size: 0.82rem; }
+    .section-label { margin: 9px 2px 5px; }
+    .ability-card { padding: 7px 12px; gap: 10px; }
+    .ability-icon-wrap { width: 28px; height: 28px; }
+    .ability-icon { width: 15px; height: 15px; }
+    .ability-name { font-size: 0.8rem; }
+    .ability-eval { font-size: 0.71rem; }
+    .ability-value { font-size: 1.08rem; }
+    .sub-data-val { font-size: 1.0rem; }
+    .sub-data-key { font-size: 0.67rem; }
+    .tip-banner { padding: 9px 12px; }
+    .tip-icon-svg { width: 17px; height: 17px; }
+    .tip-title { font-size: 0.8rem; }
+    .tip-content { font-size: 0.8rem; }
     #gameOverScreen .btn-group .btn,
-    #reportScreen .btn-group .btn { font-size: 0.84rem; padding: 10px 6px; min-height: 40px; }
+    #reportScreen .btn-group .btn { font-size: 0.8rem; padding: 8px 4px; min-height: 39px; }
 
     /* 首页移动端适配 */
     .welcome-title { font-size: 1.2rem; }

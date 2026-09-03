@@ -305,6 +305,10 @@ const btnBackToMenu = document.getElementById('backToMenuBtn');
 // Share result snapshot (populated in endGame, consumed by share handler)
 let shareSnapshot = null;
 
+// 报告页分享数据内存缓存：进入页面时预渲染分享图、预构建文案，
+// 点击分享时零准备、直接同步调用 postNote（避免首次点击时渲染/解析/清洗导致容器吞掉手势）
+let cachedReportShare = null;
+
 // Dashboard Elements
 const timerDisplay = document.getElementById('timerDisplay');
 const timerBarFill = document.getElementById('timerBarFill');
@@ -1043,13 +1047,29 @@ function stripEmoji(str) {
 }
 
 // 清洗整份报告数据中所有字符串字段（rankTitle/slogan/interpretText/tipContent 等）
+// 注意：shareImageDataUrl 是 base64（不含 emoji），跳过正则避免扫描大字符串拖慢分享
 function sanitizeReportData(data) {
     if (!data || typeof data !== 'object') return data;
     const clean = {};
     for (const k in data) {
+        if (k === 'shareImageDataUrl') { clean[k] = data[k]; continue; }
         clean[k] = typeof data[k] === 'string' ? stripEmoji(data[k]) : data[k];
     }
     return clean;
+}
+
+// 预渲染分享图并缓存（进入报告页时执行一次；结算页已在 endGame 预渲染）
+function prepareSharePayload(data) {
+    if (!data) return data;
+    try {
+        if (!data.shareImageDataUrl) {
+            const c = renderShareCard(data);
+            data.shareImageDataUrl = c.toDataURL('image/png');
+        }
+    } catch (e) {
+        console.warn('prepare share payload failed:', e);
+    }
+    return data;
 }
 
 // 首页：报告按钮一直显示，无需控制显隐
@@ -1078,6 +1098,9 @@ function showReport() {
         }
     } catch (e) { /* 写回失败不影响展示 */ }
     if (reportHint) reportHint.style.display = 'none';
+
+    // 预渲染分享图并缓存到内存，点击分享时零准备、一次触发 postNote
+    cachedReportShare = prepareSharePayload(data);
 
     reportDate.innerText = data.date || '最近测试';
     const reportRank = data.rankLetter || data.rank || 'A';
@@ -1336,13 +1359,8 @@ if (reportRetestBtn) {
 }
 if (reportShareBtn) {
     reportShareBtn.addEventListener('click', () => {
-        let data = null;
-        try {
-            data = JSON.parse(localStorage.getItem('float_last_report') || 'null');
-        } catch (e) {
-            data = null;
-        }
-        if (data) handleShare(reportShareBtn, sanitizeReportData(data));
+        // 直接用进入页面时缓存的报告数据（已预渲染分享图），点击瞬间即可触发 postNote
+        handleShare(reportShareBtn, cachedReportShare);
     });
 }
 
@@ -1351,45 +1369,58 @@ if (viewReportBtn) {
     viewReportBtn.addEventListener('click', showReport);
 }
 
-// 分享按钮统一处理：loading状态防止重复点击，提升首次点击响应感知
-async function handleShare(btn, snapshot) {
-    if (!snapshot || btn.disabled) return;
-    btn.disabled = true;
-    const originalText = btn.textContent;
-    btn.textContent = '分享中...';
+// 分享按钮统一处理：用 CSS class 防重复（不写 disabled / 不改文本，避免在 postNote
+// 前触发强制重排拖慢手势），首次点击立即、同步、纯净地调用 postNote
+function handleShare(btn, snapshot) {
+    if (!snapshot || btn.dataset.sharing === '1') return;
+    btn.dataset.sharing = '1';
+    btn.classList.add('is-sharing');
+    const settle = () => {
+        btn.dataset.sharing = '';
+        btn.classList.remove('is-sharing');
+    };
+    let p = null;
     try {
-        await shareReport(snapshot);
-    } finally {
-        btn.disabled = false;
-        btn.textContent = originalText;
+        p = shareReport(snapshot);
+    } catch (e) {
+        console.warn('share handler error:', e);
     }
+    if (p && typeof p.finally === 'function') {
+        p.finally(settle);
+    } else {
+        settle();
+        return;
+    }
+    // 超时兜底：容器弹出发布页后可能不返回 JS（Promise 挂起），6s 后强制恢复按钮避免卡死
+    setTimeout(() => {
+        if (btn.dataset.sharing === '1') settle();
+    }, 6000);
 }
 
-// 通用分享函数：根据报告数据生成分享图并调用小红书 postNote
-async function shareReport(snapshot) {
-    if (!snapshot) return;
+// 通用分享函数：使用已预渲染的分享图，直接同步调用小红书 postNote
+// 若首次调用被容器吞掉（fail），自动补一次，把「点两次」变为「点一次 + 自动补」
+async function shareReport(snapshot, _retried) {
     const miniTool = window.xhs?.miniTool;
-    if (!miniTool) return;
+    if (!snapshot || !miniTool || !snapshot.shareImageDataUrl) return;
     try {
-        // 优先使用预生成的分享图（游戏结束时已渲染），没有则实时生成
-        const dataUrl = snapshot.shareImageDataUrl || (() => {
-            const canvas = renderShareCard(snapshot);
-            return canvas.toDataURL('image/png');
-        })();
-        const content =
-            '60秒挑战完成！来看看我的反应力报告\n' +
-            snapshot.slogan + '\n' +
-            `反应力等级：${snapshot.rank}｜反应速度：${snapshot.avgRt}ms\n` +
-            `判断准确度：${snapshot.accuracy}%｜切换灵活性：${snapshot.switchEval}\n` +
-            '绿叶看指向 · 橙叶看移动';
         await miniTool.postNote({
             title: '飘 · 60秒测测你的反应力',
-            content: content,
+            content:
+                '60秒挑战完成！来看看我的反应力报告\n' +
+                (snapshot.slogan || '') + '\n' +
+                `反应力等级：${snapshot.rank ?? snapshot.rankLetter ?? ''}｜反应速度：${snapshot.avgRt ?? snapshot.speedValue ?? ''}\n` +
+                `判断准确度：${snapshot.accuracy ?? snapshot.accuracyValue ?? ''}%｜切换灵活性：${snapshot.switchEval || ''}\n` +
+                '点击下方小红书小工具：飘， 测一下你的反应力',
             pageType: 'photo_publish',
-            mediaInfo: { image_resources: [{ url: dataUrl }] }
+            mediaInfo: { image_resources: [{ url: snapshot.shareImageDataUrl }] }
         });
     } catch (e) {
         console.warn('share report failed:', e);
+        // 首次失败（常见于容器桥首次调用被吞）后自动补一次
+        if (!_retried) {
+            await new Promise(r => setTimeout(r, 400));
+            return shareReport(snapshot, true);
+        }
     }
 }
 
@@ -1495,28 +1526,28 @@ function renderShareCard(snapshot) {
     ctx.textBaseline = 'middle';
 
     // 顶部 logo 绿叶 + 产品名
-    drawLeaf(ctx, 360, 162, 82, 107, '#58c27a', '#319451', '#a7f0bd', 0);
+    drawLeaf(ctx, 360, 150, 78, 102, '#58c27a', '#319451', '#a7f0bd', 0);
 
     ctx.textAlign = 'center';
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 34px -apple-system, "PingFang SC", sans-serif';
-    ctx.fillText('飘 · 60秒测测你的反应力', 360, 278);
+    ctx.font = 'bold 32px -apple-system, "PingFang SC", sans-serif';
+    ctx.fillText('飘 · 60秒测测你的反应力', 360, 262);
 
     ctx.strokeStyle = 'rgba(255,255,255,0.18)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(200, 320);
-    ctx.lineTo(520, 320);
+    ctx.moveTo(210, 298);
+    ctx.lineTo(510, 298);
     ctx.stroke();
 
-    ctx.font = '500 24px -apple-system, "PingFang SC", sans-serif';
+    ctx.font = '500 22px -apple-system, "PingFang SC", sans-serif';
     ctx.fillStyle = '#94a3b8';
-    ctx.fillText('我的反应力报告', 360, 366);
+    ctx.fillText('我的反应力报告', 360, 338);
 
     // ── 等级徽章：整张海报的视觉焦点，与报告页 rank-badge 完全同构 ──
-    const badgeCY = 486;
-    const ringOuterR = 86;
-    const ringInnerR = 76;
+    const badgeCY = 452;
+    const ringOuterR = 78;
+    const ringInnerR = 69;
 
     ctx.save();
     ctx.shadowColor = rc.glow;
@@ -1557,39 +1588,39 @@ function renderShareCard(snapshot) {
 
     // 等级标题 & 标签（标题左侧配等级线描图标：S=奖牌 A=对勾 B=上升）
     const rankTitleText = snapshot.rankTitle || '';
-    const titleY = badgeCY + ringOuterR + 50;
-    ctx.font = 'bold 32px -apple-system, "PingFang SC", sans-serif';
+    const titleY = badgeCY + ringOuterR + 42;
+    ctx.font = 'bold 30px -apple-system, "PingFang SC", sans-serif';
     const titleW = ctx.measureText(rankTitleText).width;
-    const titleIconSize = 24;
+    const titleIconSize = 22;
     drawShareLineIcon(ctx, RANK_TITLE_ICON_PATHS[snapshot.rank] || RANK_TITLE_ICON_PATHS.A,
         CX - titleW / 2 - titleIconSize / 2 - 12, titleY, titleIconSize, rc.tag);
     ctx.fillStyle = '#ffffff';
     ctx.fillText(rankTitleText, CX, titleY);
 
-    ctx.font = '600 22px -apple-system, "PingFang SC", sans-serif';
+    ctx.font = '600 20px -apple-system, "PingFang SC", sans-serif';
     ctx.fillStyle = rc.tag;
-    ctx.fillText(snapshot.rankTag || '', CX, badgeCY + ringOuterR + 84);
+    ctx.fillText(snapshot.rankTag || '', CX, badgeCY + ringOuterR + 70);
 
     // 个性化解读（句尾配等级色 4 角 sparkle）
     const interpText = snapshot.interpretText || '';
-    const interpY = badgeCY + ringOuterR + 118;
-    ctx.font = '500 21px -apple-system, "PingFang SC", sans-serif';
+    const interpY = badgeCY + ringOuterR + 98;
+    ctx.font = '500 20px -apple-system, "PingFang SC", sans-serif';
     const interpW = ctx.measureText(interpText).width;
-    const sparkSize = 13;
+    const sparkSize = 12;
     ctx.fillStyle = '#cbd5e1';
     ctx.fillText(interpText, CX, interpY);
     drawShareLineIcon(ctx, SHARE_SPARK_PATH, CX + interpW / 2 + sparkSize / 2 + 10, interpY, sparkSize, rc.tag);
 
     // ── 分区：四维能力（横向信息条，与报告页 ability-card 同构）──
-    const rowX = 100, rowW = 520, rowH = 78, rowGap = 13;
-    let sectionY = badgeCY + ringOuterR + 160;
+    const rowX = 100, rowW = 520, rowH = 66, rowGap = 10;
+    let sectionY = badgeCY + ringOuterR + 130;
 
     ctx.textAlign = 'left';
-    ctx.font = '700 20px -apple-system, "PingFang SC", sans-serif';
+    ctx.font = '700 19px -apple-system, "PingFang SC", sans-serif';
     ctx.fillStyle = 'rgba(203,213,225,0.6)';
     ctx.fillText('四维能力', rowX, sectionY);
 
-    let rowY = sectionY + 26;
+    let rowY = sectionY + 22;
 
     const abilityValues = {
         speed: snapshot.speedValue || (snapshot.avgRt + 'ms'),
@@ -1606,7 +1637,7 @@ function renderShareCard(snapshot) {
 
     SHARE_ABILITY_META.forEach((ab) => {
         // 行底 + 左侧色条（对应 CSS 的 border-left 强调色）
-        drawRoundRect(ctx, rowX, rowY, rowW, rowH, 18);
+        drawRoundRect(ctx, rowX, rowY, rowW, rowH, 16);
         ctx.fillStyle = 'rgba(255,255,255,0.045)';
         ctx.fill();
         ctx.strokeStyle = 'rgba(255,255,255,0.08)';
@@ -1614,32 +1645,32 @@ function renderShareCard(snapshot) {
         ctx.stroke();
 
         ctx.save();
-        drawRoundRect(ctx, rowX, rowY, 5, rowH, [18, 0, 0, 18]);
+        drawRoundRect(ctx, rowX, rowY, 5, rowH, [16, 0, 0, 16]);
         ctx.fillStyle = ab.color;
         ctx.fill();
         ctx.restore();
 
         // icon 圆
-        const iconCX = rowX + 50, iconCY = rowY + rowH / 2;
+        const iconCX = rowX + 48, iconCY = rowY + rowH / 2;
         ctx.beginPath();
-        ctx.arc(iconCX, iconCY, 26, 0, Math.PI * 2);
+        ctx.arc(iconCX, iconCY, 23, 0, Math.PI * 2);
         ctx.fillStyle = ab.color + '2E';
         ctx.fill();
-        drawShareLineIcon(ctx, ab.path, iconCX, iconCY, 26, ab.color);
+        drawShareLineIcon(ctx, ab.path, iconCX, iconCY, 23, ab.color);
 
         // label + eval
         ctx.textAlign = 'left';
-        ctx.font = '600 22px -apple-system, "PingFang SC", sans-serif';
+        ctx.font = '600 20px -apple-system, "PingFang SC", sans-serif';
         ctx.fillStyle = '#e2e8f0';
-        ctx.fillText(ab.label, rowX + 92, rowY + rowH / 2 - 13);
+        ctx.fillText(ab.label, rowX + 86, rowY + rowH / 2 - 12);
 
-        ctx.font = '700 19px -apple-system, "PingFang SC", sans-serif';
+        ctx.font = '700 17px -apple-system, "PingFang SC", sans-serif';
         ctx.fillStyle = ab.color;
-        ctx.fillText(abilityEvals[ab.key], rowX + 92, rowY + rowH / 2 + 17);
+        ctx.fillText(abilityEvals[ab.key], rowX + 86, rowY + rowH / 2 + 15);
 
         // value
         ctx.textAlign = 'right';
-        ctx.font = 'bold 30px -apple-system, "PingFang SC", sans-serif';
+        ctx.font = 'bold 27px -apple-system, "PingFang SC", sans-serif';
         ctx.fillStyle = '#ffffff';
         ctx.fillText(abilityValues[ab.key], rowX + rowW - 24, rowY + rowH / 2 + 2);
 
@@ -1647,13 +1678,13 @@ function renderShareCard(snapshot) {
     });
 
     // ── 分区：本局小记（无边框统计条，与报告页 sub-data-strip 同构）──
-    sectionY = rowY + 10;
+    sectionY = rowY + 8;
     ctx.textAlign = 'left';
-    ctx.font = '700 20px -apple-system, "PingFang SC", sans-serif';
+    ctx.font = '700 19px -apple-system, "PingFang SC", sans-serif';
     ctx.fillStyle = 'rgba(203,213,225,0.6)';
     ctx.fillText('本局小记', rowX, sectionY);
 
-    const subY = sectionY + 50;
+    const subY = sectionY + 42;
     const subItems = [
         { val: (snapshot.score || 0).toLocaleString(), key: '本局得分' },
         { val: (snapshot.peakMultiplier || 1) + 'x', key: '最高倍率' },
@@ -1663,27 +1694,27 @@ function renderShareCard(snapshot) {
     ctx.textAlign = 'center';
     subItems.forEach((it, i) => {
         const colCX = rowX + subColW * i + subColW / 2;
-        ctx.font = 'bold 30px -apple-system, "PingFang SC", sans-serif';
+        ctx.font = 'bold 27px -apple-system, "PingFang SC", sans-serif';
         ctx.fillStyle = '#ffffff';
         ctx.fillText(it.val, colCX, subY);
-        ctx.font = '500 18px -apple-system, "PingFang SC", sans-serif';
+        ctx.font = '500 17px -apple-system, "PingFang SC", sans-serif';
         ctx.fillStyle = '#94a3b8';
-        ctx.fillText(it.key, colCX, subY + 32);
+        ctx.fillText(it.key, colCX, subY + 28);
 
         if (i > 0) {
             ctx.strokeStyle = 'rgba(255,255,255,0.12)';
             ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.moveTo(rowX + subColW * i, subY - 26);
-            ctx.lineTo(rowX + subColW * i, subY + 42);
+            ctx.moveTo(rowX + subColW * i, subY - 22);
+            ctx.lineTo(rowX + subColW * i, subY + 38);
             ctx.stroke();
         }
     });
 
     // ── 训练建议 / slogan 色带（与报告页 tip-banner 同构）──
-    const tipY = subY + 58;
-    const tipH = 108;
-    drawRoundRect(ctx, rowX, tipY, rowW, tipH, 20);
+    const tipY = subY + 48;
+    const tipH = 92;
+    drawRoundRect(ctx, rowX, tipY, rowW, tipH, 18);
     ctx.fillStyle = 'rgba(16,185,129,0.10)';
     ctx.fill();
     ctx.strokeStyle = 'rgba(16,185,129,0.28)';
@@ -1691,32 +1722,32 @@ function renderShareCard(snapshot) {
     ctx.stroke();
 
     ctx.textAlign = 'center';
-    ctx.font = 'bold 27px -apple-system, "PingFang SC", sans-serif';
+    ctx.font = 'bold 25px -apple-system, "PingFang SC", sans-serif';
     const sloganText = snapshot.slogan || '';
     const sloganW = ctx.measureText(sloganText).width;
-    const sloganIconSize = 18;
+    const sloganIconSize = 16;
     // slogan 左侧配 5 角星线描图标，与色带同色
-    drawShareLineIcon(ctx, SHARE_STAR_PATH, CX - sloganW / 2 - sloganIconSize / 2 - 10, tipY + 38, sloganIconSize, '#6ee7b7');
+    drawShareLineIcon(ctx, SHARE_STAR_PATH, CX - sloganW / 2 - sloganIconSize / 2 - 10, tipY + 32, sloganIconSize, '#6ee7b7');
     ctx.fillStyle = '#6ee7b7';
-    ctx.fillText(sloganText, CX, tipY + 38);
+    ctx.fillText(sloganText, CX, tipY + 32);
 
-    ctx.font = '500 19px -apple-system, "PingFang SC", sans-serif';
+    ctx.font = '500 18px -apple-system, "PingFang SC", sans-serif';
     ctx.fillStyle = '#cbd5e1';
-    ctx.fillText(snapshot.tipContent || '', CX, tipY + 72);
+    ctx.fillText(snapshot.tipContent || '', CX, tipY + 62);
 
     // ── 底部品牌标语 ──
-    const footerY = tipY + tipH + 38;
-    ctx.font = '500 18px -apple-system, "PingFang SC", sans-serif';
+    const footerY = tipY + tipH + 30;
+    ctx.font = '500 17px -apple-system, "PingFang SC", sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.45)';
     ctx.fillText('绿叶看指向 · 橙叶看移动', CX, footerY);
     const footerSloganText = '测一测，看看你的反应力是什么样';
     const footerW = ctx.measureText(footerSloganText).width;
-    const footerSparkSize = 12;
-    ctx.fillText(footerSloganText, CX, footerY + 28);
-    drawShareLineIcon(ctx, SHARE_SPARK_PATH, CX + footerW / 2 + footerSparkSize / 2 + 8, footerY + 28, footerSparkSize, 'rgba(255,255,255,0.55)');
+    const footerSparkSize = 11;
+    ctx.fillText(footerSloganText, CX, footerY + 26);
+    drawShareLineIcon(ctx, SHARE_SPARK_PATH, CX + footerW / 2 + footerSparkSize / 2 + 8, footerY + 26, footerSparkSize, 'rgba(255,255,255,0.55)');
 
     // 底部水流装饰线
-    const bottomLineY = footerY + 62;
+    const bottomLineY = footerY + 50;
     ctx.strokeStyle = 'rgba(255,255,255,0.08)';
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -1726,7 +1757,7 @@ function renderShareCard(snapshot) {
     ctx.stroke();
 
     // 按实际内容高度裁剪画布，避免底部留白过多
-    const finalHeight = Math.min(canvas.height, Math.ceil(bottomLineY + 60));
+    const finalHeight = Math.min(canvas.height, Math.ceil(bottomLineY + 50));
     if (finalHeight < canvas.height) {
         const cropped = document.createElement('canvas');
         cropped.width = canvas.width;
