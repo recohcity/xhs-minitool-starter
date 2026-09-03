@@ -10,6 +10,16 @@
 ### Added
 - 暂无待发布内容
 
+## [1.0.4] - 2026-09-03
+
+### Fixed
+- 修复分享按钮需点击两次才弹出发布笔记页的问题：点击链路净化（去掉 `postNote` 前的强制重排，改为 CSS class 防重）、分享图在进入页面时预渲染并缓存到内存（点击零准备、直接同步触发）、`postNote` 失败自动补发一次、增加 6s 超时兜底防止按钮卡死
+
+### Changed
+- 报告页 / 结算页排版回放为透气档：内容区与游戏界面内容区同高、铺满整屏，单屏完整显示且不再紧密（徽章 / 四维信息条 / 分区标题 / 字号整体回放宽松值）
+- 分享笔记正文最后一行改为「点击下方小红书小工具：飘， 测一下你的反应力」引导语
+- 更新 `dist/` 构建产物并重建 `release/float_mini_tool.zip` 发布包（含上述全部改动）
+
 ## [1.0.3] - 2026-09-03
 
 ### Fixed
@@ -67,6 +77,7 @@
 - `release/` 发布产物（图标与可直接上传的 zip 包）
 - MIT License
 
+[1.0.4]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.4
 [1.0.3]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.3
 [1.0.2]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.2
 [1.0.1]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.1
