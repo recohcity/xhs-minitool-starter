@@ -10,6 +10,14 @@
 ### Added
 - 暂无待发布内容
 
+## [1.0.6] - 2026-09-03
+
+### Changed
+- **统一为单一 skill**：删除内置 `.trae/skills/xhs-minitool-dev`（旧版副本），保留官方最新 `minitool-zip-builder v1.6.0`（`.skill/minitool-zip-builder/`），避免双份 skill 不一致
+- 沉淀文档 `optimization-experience.md` 移入官方 skill 的 `references/`，并登记到 SKILL.md Reference 索引，随 skill 一起入库使用
+- 沉淀文档新增「维护约定」：官方 skill 不定期更新时保留沉淀文档（被覆盖从 git 恢复）、新游戏/优化经验持续追加
+- README / docs/skill-usage.md 引用统一指向 `.skill/minitool-zip-builder/`，工作流更新为官方 v1.6.0 7 步流程，文件清单补齐
+
 ## [1.0.5] - 2026-09-03
 
 ### Added
@@ -90,6 +98,7 @@
 - `release/` 发布产物（图标与可直接上传的 zip 包）
 - MIT License
 
+[1.0.6]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.6
 [1.0.5]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.5
 [1.0.4]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.4
 [1.0.3]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.3
