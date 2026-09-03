@@ -2,7 +2,7 @@
 
 > 基于小红书官方 Skill 规范的小工具开发起步模板，含完整小游戏实例与发布指南，帮助开发者用 AI（Vibe Coding）快速创建并上架小红书小工具。
 
-[![Version](https://img.shields.io/badge/version-1.0.2-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.0.3-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![小红书](https://img.shields.io/badge/平台-小红书-ff2442.svg)](https://www.xiaohongshu.com)
 
@@ -39,7 +39,7 @@
 xhs-minitool-starter/
 ├── README.md                    # 项目说明（本文件）
 ├── CHANGELOG.md                 # 版本变更记录
-├── VERSION                      # 当前版本号（如 1.0.2）
+├── VERSION                      # 当前版本号（如 1.0.3）
 ├── docs/
 │   └── skill-usage.md           # Skill 详细使用说明书
 ├── .trae/
