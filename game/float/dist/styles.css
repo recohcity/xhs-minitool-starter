@@ -41,6 +41,9 @@
     --glass-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.3);
     
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* 小红书容器顶部导航栏高度（返回 / 分享按钮所在行）；真机若仍有遮挡，可按实测微调此值 */
+    --container-nav-h: 44px;
 }
 
 /* ==========================================================================
@@ -52,13 +55,21 @@
     padding: 0;
 }
 
+/* 根滚动锁死：整页不可拖动/回弹，滚动只发生在 .screen 内部（真机容器顶栏不再被拖出） */
+html {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
 body {
     font-family: var(--font-sans);
     color: var(--text-primary);
     overflow: hidden;
-    height: 100vh;
-    height: 100dvh; /* mobile viewport height (address-bar safe) */
-    width: 100vw;
+    overflow-x: hidden;
+    height: 100%;
+    width: 100%;
+    overscroll-behavior: none;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -164,8 +175,9 @@ body {
     z-index: 10;
     width: 100%;
     max-width: 850px;
-    height: 100vh;
-    height: 100dvh; /* mobile viewport height (address-bar safe) */
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden; /* 防止任何横向溢出导致左右拖动 */
     padding: 15px 15px max(15px, env(safe-area-inset-bottom));
     display: flex;
     flex-direction: column;
@@ -184,8 +196,13 @@ body {
     align-items: center;
     transition: opacity 0.4s ease;
     overflow-y: auto;
+    overflow-x: hidden;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* 隐藏屏内滚动条：内容可滚动但不露出浏览器滑条 */
+}
+.screen::-webkit-scrollbar {
+    display: none;
 }
 
 .screen.active {
@@ -863,7 +880,8 @@ body {
 #gameOverScreen,
 #reportScreen {
     max-width: 560px;
-    padding-top: 6px;
+    /* 顶部避开手机状态栏（摄像头 / 灵动岛）+ 容器导航栏（返回 / 分享按钮），避免标题被遮挡 */
+    padding-top: calc(var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) + var(--container-nav-h, 44px));
 }
 
 #gameOverScreen .game-header,

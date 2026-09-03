@@ -39,3 +39,4 @@ metadata:
 | [device-capabilities.md](references/device-capabilities.md) | 处理端能力时：哪些 Web 能力可用 / 不可用及替代写法、如何实现常见交互（手势、拍照、选图等） |
 | [jsbridge-api.md](references/jsbridge-api.md) | 调用 Native 能力时：`window.xhs.miniTool.*` 全量 API、参数约束、示例与常见组合 |
 | [cross-platform-h5.md](references/cross-platform-h5.md) | 适配多端时：触摸、滚动、安全区、PC 模拟器与真机差异 |
+| [optimization-experience.md](references/optimization-experience.md) | 做 UI 优化 / 视觉改版 / 分享卡 / 真机适配，或复盘踩坑时：可复用模式、代码片段与验证方法；新经验追加到「追加区」 |

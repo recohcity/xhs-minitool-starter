@@ -10,6 +10,18 @@
 ### Added
 - 暂无待发布内容
 
+## [1.0.3] - 2026-09-03
+
+### Fixed
+- 真机容器适配：报告页 / 结算页标题避开手机状态栏（摄像头 / 灵动岛）与容器导航栏（返回 / 分享按钮）遮挡——顶部按「安全区 + 容器导航高度」让位，标题不再被摄像头位置遮住
+- 修复报告内容可上下左右整页拖动、露出浏览器滚动条的问题：页面级滚动 / 回弹锁死（`html/body` 高度 100% + `overflow:hidden` + `overscroll-behavior:none`），内容仅在屏内滚动且隐藏滚动条，横向溢出消除
+
+### Added
+- 新增 `xhs-minitool-dev` Skill 优化经验沉淀文档 `references/optimization-experience.md`（视觉层级改版模式、Canvas 分享卡同源、系统表情→线描 SVG 三层清洗、真机容器适配、验证方法，含可复用代码片段与「追加区」），并登记进 SKILL.md Reference 索引
+
+### Changed
+- 更新 `dist/` 构建产物并重建 `release/float_mini_tool.zip` 发布包（含上述真机适配修复）
+
 ## [1.0.2] - 2026-09-03
 
 ### Added
@@ -55,6 +67,7 @@
 - `release/` 发布产物（图标与可直接上传的 zip 包）
 - MIT License
 
+[1.0.3]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.3
 [1.0.2]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.2
 [1.0.1]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.1
 [1.0.0]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.0
