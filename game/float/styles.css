@@ -232,34 +232,7 @@ h3 {
     font-weight: 600;
 }
 
-p.description {
-    font-size: 1.05rem;
-    color: var(--text-secondary);
-    line-height: 1.6;
-    margin-bottom: 22px;
-}
 
-/* Color hints inside paragraph */
-.rule-hint {
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: 8px;
-    font-weight: 700;
-    font-size: 0.95rem;
-    margin: 2px;
-}
-
-.rule-hint.green {
-    background: rgba(44, 164, 68, 0.15);
-    color: #58c27a;
-    border: 1px solid rgba(44, 164, 68, 0.25);
-}
-
-.rule-hint.orange {
-    background: rgba(242, 114, 12, 0.15);
-    color: #ffaa5a;
-    border: 1px solid rgba(242, 114, 12, 0.25);
-}
 
 /* ==========================================================================
    BUTTONS (PREMIUM STATE)
@@ -393,12 +366,6 @@ p.description {
     text-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
-.tagline {
-    font-size: 1.05rem;
-    color: var(--text-secondary);
-    letter-spacing: 0.5px;
-    margin-top: 5px;
-}
 
 /* ==========================================================================
    WELCOME — 首页（小红书轻测评风格）
@@ -426,65 +393,6 @@ p.description {
     white-space: nowrap;
 }
 
-/* 卖点标签行 */
-.welcome-tags {
-    display: flex;
-    justify-content: center;
-    gap: 6px;
-    margin-bottom: 10px;
-    flex-wrap: wrap;
-}
-
-.welcome-tag {
-    font-size: 0.72rem;
-    padding: 3px 10px;
-    border-radius: 20px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    color: var(--text-secondary);
-    white-space: nowrap;
-}
-
-/* 规则卡片（轻松口语化） */
-.rule-card {
-    padding: 12px 16px;
-    margin-bottom: 12px;
-}
-
-.rule-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 5px 0;
-}
-
-.rule-dot {
-    width: 11px;
-    height: 11px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.rule-dot.green {
-    background: #58c27a;
-    box-shadow: 0 0 8px rgba(88, 194, 122, 0.5);
-}
-
-.rule-dot.orange {
-    background: #ff9f43;
-    box-shadow: 0 0 8px rgba(255, 159, 67, 0.5);
-}
-
-.rule-text {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    line-height: 1.4;
-}
-
-.rule-text strong {
-    color: #ffffff;
-    font-weight: 700;
-}
 
 /* 首页按钮组（垂直排列） */
 .welcome-btns {
@@ -509,93 +417,7 @@ p.description {
     white-space: nowrap;
 }
 
-/* 极简规则两行 */
-.welcome-rules {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 14px;
-    width: 100%;
-    max-width: 360px;
-}
 
-.welcome-rule {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    padding: 8px 16px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 12px;
-    white-space: nowrap;
-}
-
-/* 报告入口卡片 */
-.report-entry {
-    width: 100%;
-    max-width: 420px;
-    padding: 14px 18px;
-    margin-bottom: max(10px, env(safe-area-inset-bottom));
-    cursor: pointer;
-    transition: var(--transition-smooth);
-}
-
-.report-entry:hover {
-    background: rgba(255, 255, 255, 0.12);
-    transform: translateY(-1px);
-}
-
-.report-entry:active {
-    transform: scale(0.99);
-}
-
-.report-entry-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-}
-
-.report-entry-icon {
-    font-size: 1.1rem;
-}
-
-.report-entry-title {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: #ffffff;
-}
-
-.report-entry-arrow {
-    margin-left: auto;
-    font-size: 0.9rem;
-    color: var(--text-muted);
-}
-
-.report-entry-summary {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-    white-space: nowrap;
-}
-
-.report-entry-rank {
-    font-weight: 700;
-    color: var(--accent-gold);
-}
-
-.report-entry-empty {
-    text-align: center;
-}
-
-.report-entry-empty-text {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    margin: 4px 0;
-}
 
 /* 报告详情页日期 */
 .report-date {
@@ -605,92 +427,6 @@ p.description {
     letter-spacing: 0.5px;
 }
 
-/* 记录面板紧凑化 */
-.leaderboard-panel {
-    padding: 14px 18px;
-}
-
-.leaderboard-panel h3 {
-    font-size: 1.05rem;
-    margin-bottom: 8px;
-}
-
-/* ==========================================================================
-   LEADERBOARD / SCORE RECORDS
-   ========================================================================== */
-.leaderboard-panel {
-    max-width: 520px;
-}
-
-.leaderboard-panel h3 {
-    font-size: 1.25rem;
-    margin-bottom: 12px;
-    color: var(--accent-gold);
-    letter-spacing: 0.5px;
-}
-
-.leaderboard-list {
-    list-style: none;
-}
-
-.leaderboard-list li {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 14px;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.04);
-    margin-bottom: 8px;
-    font-size: 0.95rem;
-    border-left: 3px solid transparent;
-    transition: var(--transition-smooth);
-    white-space: nowrap;
-}
-
-.leaderboard-list li:hover {
-    background: rgba(255, 255, 255, 0.08);
-    transform: scale(1.01);
-}
-
-.leaderboard-list li.rank-1 {
-    border-left-color: var(--accent-gold);
-    background: rgba(251, 191, 36, 0.08);
-    font-weight: 600;
-}
-
-.leaderboard-list li.empty-list {
-    justify-content: center;
-    color: var(--text-muted);
-    font-style: italic;
-    background: none;
-    border: none;
-}
-
-.rank-index {
-    font-weight: bold;
-    color: var(--text-secondary);
-    margin-right: 2px;
-}
-
-.rank-1 .rank-index {
-    color: var(--accent-gold);
-}
-
-/* 单行：名次 | 分数 + 统计（右对齐）
-   字号用 vw 自适应收窄，保证分数 + 正确率 + 用时始终一行显示 */
-.lb-stats {
-    margin-left: auto;
-    font-size: clamp(0.6rem, 3.4vw, 0.82rem);
-    color: var(--text-secondary);
-    white-space: nowrap;
-}
-
-/* 分数与正确率/用时同一字号（继承），仅用颜色与字重区分 */
-.lb-stats .lb-score {
-    color: var(--accent-gold);
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-}
 
 /* ==========================================================================
    TUTORIAL SCREEN & VISUALIZERS
@@ -1087,24 +823,15 @@ body {
     h2 { font-size: 1.55rem; }
     .logo-text { font-size: 2rem; }
     .logo-leaf { width: 28px; }
-    .tagline { font-size: 0.95rem; }
-    p.description { font-size: 0.98rem; }
-    .rule-hint { font-size: 0.88rem; }
     .btn { font-size: 1rem; padding: 13px 22px; }
     .game-dashboard { padding: 10px 16px; margin-bottom: 12px; }
     .dashboard-item .value,
     .multiplier-val { font-size: 1.35rem; }
     .timer-bar-container { width: 76px; }
-    .stat-card { padding: 16px; min-height: 88px; }
-    .stat-value { font-size: 1.35rem; }
-    .stat-value.highlight { font-size: 2rem; }
     .tutorial-header h2 { font-size: 1.4rem; }
     .tut-instruction { font-size: 0.98rem; }
     .leaf-preview-box { height: 150px; }
     .practice-box { height: 190px; }
-    .reaction-breakdown { padding: 10px 12px; }
-    .breakdown-item { font-size: 0.88rem; }
-    .leaderboard-list li { gap: 8px; padding: 9px 12px; font-size: 0.9rem; }
     .playing-footer { margin-top: 18px; }
     .playing-footer .btn { font-size: 0.85rem; padding: 8px 18px; }
 }
@@ -1116,99 +843,6 @@ body {
     max-width: 720px;
 }
 
-.stats-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 15px;
-    width: 100%;
-    margin-bottom: 25px;
-}
-
-.stat-card {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-    min-height: 100px;
-}
-
-.stat-card.hero-stat {
-    grid-column: span 2;
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.22);
-}
-
-.stat-card.full-width {
-    grid-column: span 2;
-    align-items: stretch;
-}
-
-.stat-label {
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--text-muted);
-    margin-bottom: 6px;
-}
-
-.stat-value {
-    font-family: var(--font-sans);
-    font-size: 1.8rem;
-    font-weight: 700;
-}
-
-.stat-value.highlight {
-    font-size: 2.6rem;
-    color: var(--accent-gold);
-    text-shadow: 0 0 15px var(--accent-gold-glow);
-}
-
-.stat-subtext {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    margin-top: 4px;
-}
-
-/* Latency Switch Cost Breakdown */
-.reaction-breakdown {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-top: 15px;
-    background: rgba(0, 0, 0, 0.15);
-    border-radius: 12px;
-    padding: 12px 16px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.breakdown-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.95rem;
-}
-
-.breakdown-item.divider {
-    border-top: 1px solid rgba(255, 255, 255, 0.12);
-    padding-top: 10px;
-    margin-top: 2px;
-}
-
-.b-label {
-    color: var(--text-secondary);
-}
-
-.b-value {
-    font-family: var(--font-sans);
-    font-weight: 700;
-    color: #ffffff;
-}
-
-.b-value.warning {
-    color: var(--rule-orange);
-    text-shadow: 0 0 8px var(--rule-orange-glow);
-}
 
 /* ==========================================================================
    UTILITY & ANIMATION KEYFRAMES
@@ -1224,213 +858,370 @@ body {
 }
 
 /* ==========================================================================
-   GAME OVER — 反应力报告页（紧凑版·单屏）
+   GAME OVER & REPORT SCREENS — 等级徽章式布局，弱化边框、强化层级
    ========================================================================== */
-#gameOverScreen {
-    max-width: 640px;
-    padding-top: 8px;
+#gameOverScreen,
+#reportScreen {
+    max-width: 560px;
+    padding-top: 6px;
 }
 
-#gameOverScreen .game-header {
-    margin-bottom: 10px;
+#gameOverScreen .game-header,
+#reportScreen .game-header {
+    margin-bottom: 14px;
 }
 
-#gameOverScreen .game-header h2 {
-    font-size: 1.35rem;
+#gameOverScreen .game-header h2,
+#reportScreen .game-header h2 {
+    font-size: 1.5rem;
     margin-bottom: 0;
 }
 
-/* 等级大卡片 */
-.rank-card {
+.report-date {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+/* ---- 等级徽章：整页视觉焦点 ---- */
+.rank-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     text-align: center;
-    background: rgba(255, 255, 255, 0.10);
-    border: 1px solid rgba(255, 255, 255, 0.20);
-    padding: 12px 16px;
-    margin-bottom: 8px;
+    width: 100%;
+    padding: 8px 0 4px;
+    margin-bottom: 4px;
+    --rank-ring-a: #fde68a;
+    --rank-ring-b: #f59e0b;
+    --rank-glow: rgba(251, 191, 36, 0.55);
+    --rank-text: var(--accent-gold);
+}
+
+.rank-hero.rank-a {
+    --rank-ring-a: #86efac;
+    --rank-ring-b: #10b981;
+    --rank-glow: rgba(16, 185, 129, 0.5);
+    --rank-text: #6ee7b7;
+}
+
+.rank-hero.rank-b {
+    --rank-ring-a: #93c5fd;
+    --rank-ring-b: #3b82f6;
+    --rank-glow: rgba(59, 130, 246, 0.45);
+    --rank-text: #93c5fd;
+}
+
+.rank-badge {
+    position: relative;
+    width: 108px;
+    height: 108px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.02) 70%);
+}
+
+.rank-badge::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, var(--rank-ring-a), var(--rank-ring-b), var(--rank-ring-a));
+    z-index: -1;
+}
+
+.rank-badge::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    box-shadow: 0 0 26px var(--rank-glow);
+    animation: rankBadgeGlowPulse 2.2s ease-in-out infinite;
+}
+
+.rank-badge-letter {
+    font-size: 2.7rem;
+    font-weight: 900;
+    color: #ffffff;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+    z-index: 1;
+}
+
+@keyframes rankBadgeGlowPulse {
+    0%, 100% { box-shadow: 0 0 18px var(--rank-glow); }
+    50%      { box-shadow: 0 0 34px var(--rank-glow); }
 }
 
 .rank-title {
-    font-size: 1.15rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.28rem;
     font-weight: 800;
-    color: var(--accent-gold);
-    text-shadow: 0 0 10px var(--accent-gold-glow);
-    margin-bottom: 3px;
-    letter-spacing: 0.3px;
-    white-space: nowrap;
+    color: #ffffff;
+    margin-bottom: 6px;
+    letter-spacing: 0.2px;
+}
+
+/* 等级标题前的线描图标：与四维能力同风格，随等级取强调色 */
+.rank-title-icon {
+    width: 20px;
+    height: 20px;
+    color: var(--rank-text);
+    flex-shrink: 0;
 }
 
 .rank-tag {
-    font-size: 0.82rem;
+    font-size: 0.92rem;
     font-weight: 600;
-    color: #a7f0bd;
-    letter-spacing: 0.5px;
-    white-space: nowrap;
+    color: var(--rank-text);
+    letter-spacing: 0.4px;
 }
 
-/* 个性化解读卡片 */
-.interpret-card {
-    padding: 8px 14px;
-    margin-bottom: 8px;
-}
-
+/* ---- 个性化解读：无边框引述，靠留白与首尾引号呼吸，句尾等级色星标 ---- */
 .interpret-text {
-    font-size: 0.88rem;
-    line-height: 1.4;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    max-width: 460px;
+    font-size: 0.95rem;
+    line-height: 1.6;
     color: var(--text-secondary);
     text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    padding: 4px 20px 0;
+    margin-bottom: 6px;
 }
 
-/* 四大能力卡片网格 */
-.ability-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
+.interpret-spark {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: var(--rank-accent, #fbbf24);
+}
+
+/* ---- 分区小标题：弱化但明确的分组引导 ---- */
+.section-label {
     width: 100%;
-    margin-bottom: 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 22px 2px 10px;
+}
+
+/* ---- 四大能力：竖排信息条，而非四个孤立方框 ---- */
+.ability-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    margin-bottom: 4px;
 }
 
 .ability-card {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 8px 6px;
-    min-height: 68px;
-    gap: 1px;
+    gap: 14px;
+    width: 100%;
+    padding: 13px 16px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.045);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-left: 3px solid var(--ability-accent, #ffffff);
 }
 
+.ability-speed    { --ability-accent: #38bdf8; }
+.ability-accuracy { --ability-accent: #34d399; }
+.ability-switch   { --ability-accent: #a78bfa; }
+.ability-focus    { --ability-accent: #fbbf24; }
+
+.ability-icon-wrap {
+    flex-shrink: 0;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ability-speed    .ability-icon-wrap { background: rgba(56, 189, 248, 0.18); }
+.ability-accuracy .ability-icon-wrap { background: rgba(52, 211, 153, 0.18); }
+.ability-switch   .ability-icon-wrap { background: rgba(167, 139, 250, 0.18); }
+.ability-focus    .ability-icon-wrap { background: rgba(251, 191, 36, 0.18); }
+
 .ability-icon {
-    font-size: 1.05rem;
-    line-height: 1;
+    width: 19px;
+    height: 19px;
+    color: var(--ability-accent, #ffffff);
+    flex-shrink: 0;
+}
+
+.ability-text {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
 }
 
 .ability-name {
-    font-size: 0.72rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.ability-eval {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--ability-accent, var(--theme-success));
+}
+
+.ability-value {
+    flex-shrink: 0;
+    font-size: 1.32rem;
+    font-weight: 800;
+    color: #ffffff;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* ---- 本局小记：无边框统计条，靠分隔线区分 ---- */
+.sub-data-strip {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-around;
+    width: 100%;
+    padding: 2px 8px 4px;
+    margin-bottom: 4px;
+}
+
+.sub-data-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding: 0 6px;
+}
+
+.sub-data-item + .sub-data-item {
+    border-left: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.sub-data-val {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #ffffff;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.sub-data-key {
+    font-size: 0.74rem;
     color: var(--text-muted);
     letter-spacing: 0.3px;
     white-space: nowrap;
 }
 
-.ability-value {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: #ffffff;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-
-.ability-eval {
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: var(--theme-success);
-    white-space: nowrap;
-}
-
-/* 本局小记（辅助数据，弱化·紧凑） */
-.sub-data-card {
-    padding: 8px 14px;
-    margin-bottom: 8px;
-}
-
-.sub-data-title {
-    font-size: 0.72rem;
-    color: var(--text-muted);
-    letter-spacing: 0.8px;
-    margin-bottom: 4px;
-    text-transform: uppercase;
-    white-space: nowrap;
-}
-
-.sub-data-row {
+/* ---- 训练建议：色带横幅，与统计区区分开 ---- */
+.tip-banner {
     display: flex;
-    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.18);
+    border-radius: 18px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+}
+
+.tip-icon {
+    display: flex;
     align-items: center;
-    font-size: 0.82rem;
-    padding: 2px 0;
-    color: var(--text-secondary);
+    flex-shrink: 0;
+    margin-top: 1px;
 }
 
-.sub-data-row span:first-child {
-    white-space: nowrap;
+/* 训练建议灯泡：线描风格，与四维能力图标同源 */
+.tip-icon-svg {
+    width: 22px;
+    height: 22px;
+    color: var(--theme-success);
 }
 
-.sub-data-row span:last-child {
-    font-weight: 600;
-    color: #ffffff;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-
-/* 训练建议卡片 */
-.tip-card {
-    padding: 8px 14px;
-    margin-bottom: 12px;
-    border-left: 3px solid var(--theme-success);
+.tip-body {
+    min-width: 0;
 }
 
 .tip-title {
-    font-size: 0.82rem;
+    font-size: 0.9rem;
     font-weight: 700;
     color: var(--theme-success);
-    margin-bottom: 3px;
-    white-space: nowrap;
+    margin-bottom: 4px;
 }
 
 .tip-content {
-    font-size: 0.82rem;
-    line-height: 1.45;
+    font-size: 0.87rem;
+    line-height: 1.55;
     color: var(--text-secondary);
 }
 
-/* 结束页按钮组：三按钮紧凑 */
-/* 结束页 & 报告详情页 按钮组：三按钮横向紧凑 */
+/* ---- 结算页 & 报告详情页按钮组 ---- */
 #gameOverScreen .btn-group,
 #reportScreen .btn-group {
     flex-wrap: nowrap;
-    gap: 8px;
-    margin-bottom: max(8px, env(safe-area-inset-bottom));
+    gap: 10px;
+    margin-bottom: max(10px, env(safe-area-inset-bottom));
 }
 
 #gameOverScreen .btn-group .btn,
 #reportScreen .btn-group .btn {
     flex: 1 1 0;
     min-width: 0;
-    font-size: 0.88rem;
-    padding: 10px 8px;
-    min-height: 40px;
+    font-size: 0.92rem;
+    padding: 12px 8px;
+    min-height: 44px;
     white-space: nowrap;
 }
 
-/* 移动端适配（结束页紧凑版） */
+/* ---- 移动端适配 ---- */
 @media (max-width: 480px) {
-    #gameOverScreen .game-header h2 { font-size: 1.15rem; }
-    .rank-title { font-size: 1rem; }
-    .rank-tag { font-size: 0.75rem; }
-    .interpret-text { font-size: 0.8rem; }
-    .ability-card { padding: 6px 4px; min-height: 62px; }
-    .ability-icon { font-size: 0.95rem; }
-    .ability-value { font-size: 1rem; }
-    .ability-name, .ability-eval { font-size: 0.68rem; }
-    .sub-data-card { padding: 6px 12px; }
-    .sub-data-row { font-size: 0.78rem; padding: 1px 0; }
-    .sub-data-title { font-size: 0.68rem; margin-bottom: 2px; }
-    .tip-card { padding: 6px 12px; }
-    .tip-title { font-size: 0.78rem; }
-    .tip-content { font-size: 0.78rem; line-height: 1.4; }
-    #gameOverScreen .btn-group .btn { font-size: 0.8rem; padding: 8px 4px; min-height: 36px; }
+    #gameOverScreen .game-header h2,
+    #reportScreen .game-header h2 { font-size: 1.25rem; }
+    .rank-badge { width: 92px; height: 92px; margin-bottom: 12px; }
+    .rank-badge-letter { font-size: 2.3rem; }
+    .rank-title { font-size: 1.1rem; }
+    .rank-title-icon { width: 17px; height: 17px; }
+    .rank-tag { font-size: 0.82rem; }
+    .interpret-text { font-size: 0.86rem; padding: 4px 8px 0; }
+    .interpret-spark { width: 12px; height: 12px; }
+    .section-label { margin: 18px 2px 8px; }
+    .ability-card { padding: 11px 13px; gap: 11px; }
+    .ability-icon-wrap { width: 34px; height: 34px; }
+    .ability-icon { width: 17px; height: 17px; }
+    .ability-name { font-size: 0.82rem; }
+    .ability-eval { font-size: 0.72rem; }
+    .ability-value { font-size: 1.15rem; }
+    .sub-data-val { font-size: 1.1rem; }
+    .sub-data-key { font-size: 0.68rem; }
+    .tip-banner { padding: 12px 14px; }
+    .tip-icon-svg { width: 19px; height: 19px; }
+    .tip-title { font-size: 0.85rem; }
+    .tip-content { font-size: 0.82rem; }
+    #gameOverScreen .btn-group .btn,
+    #reportScreen .btn-group .btn { font-size: 0.84rem; padding: 10px 6px; min-height: 40px; }
 
     /* 首页移动端适配 */
     .welcome-title { font-size: 1.2rem; }
     .welcome-subtitle { font-size: 0.78rem; }
-    .welcome-rules { margin-bottom: 10px; gap: 4px; }
-    .welcome-rule { font-size: 0.82rem; padding: 6px 12px; gap: 8px; }
-    .rule-dot { width: 9px; height: 9px; }
-    .report-entry { padding: 10px 14px; }
-    .report-entry-title { font-size: 0.88rem; }
-    .report-entry-summary { font-size: 0.75rem; gap: 8px; }
     .welcome-btns { margin-bottom: 10px; }
     .welcome-btns .btn { font-size: 0.95rem; padding: 11px 18px; }
 }
@@ -1649,38 +1440,35 @@ body {
     50%      { transform: scale(1.18); }
 }
 
-/* ---- 12. 结算页卡片：依次浮现，带出仪式感 ---- */
-#gameOverScreen.active .rank-card,
-#gameOverScreen.active .interpret-card,
+/* ---- 12. 结算页/报告页：各分区依次浮现，带出仪式感 ---- */
+#gameOverScreen.active .rank-hero,
+#gameOverScreen.active .interpret-text,
 #gameOverScreen.active .ability-card,
-#gameOverScreen.active .sub-data-card,
-#gameOverScreen.active .tip-card {
+#gameOverScreen.active .sub-data-strip,
+#gameOverScreen.active .tip-banner,
+#reportScreen.active .rank-hero,
+#reportScreen.active .interpret-text,
+#reportScreen.active .ability-card,
+#reportScreen.active .sub-data-strip,
+#reportScreen.active .tip-banner {
     animation: cardRise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-#gameOverScreen.active .rank-card       { animation-delay: 0.05s; }
-#gameOverScreen.active .interpret-card  { animation-delay: 0.12s; }
-#gameOverScreen.active .ability-card:nth-child(1) { animation-delay: 0.18s; }
-#gameOverScreen.active .ability-card:nth-child(2) { animation-delay: 0.22s; }
-#gameOverScreen.active .ability-card:nth-child(3) { animation-delay: 0.26s; }
-#gameOverScreen.active .ability-card:nth-child(4) { animation-delay: 0.30s; }
-#gameOverScreen.active .sub-data-card   { animation-delay: 0.34s; }
-#gameOverScreen.active .tip-card        { animation-delay: 0.38s; }
+#gameOverScreen.active .rank-hero,      #reportScreen.active .rank-hero      { animation-delay: 0.05s; }
+#gameOverScreen.active .interpret-text, #reportScreen.active .interpret-text { animation-delay: 0.12s; }
+#gameOverScreen.active .ability-card:nth-child(1), #reportScreen.active .ability-card:nth-child(1) { animation-delay: 0.18s; }
+#gameOverScreen.active .ability-card:nth-child(2), #reportScreen.active .ability-card:nth-child(2) { animation-delay: 0.22s; }
+#gameOverScreen.active .ability-card:nth-child(3), #reportScreen.active .ability-card:nth-child(3) { animation-delay: 0.26s; }
+#gameOverScreen.active .ability-card:nth-child(4), #reportScreen.active .ability-card:nth-child(4) { animation-delay: 0.30s; }
+#gameOverScreen.active .sub-data-strip, #reportScreen.active .sub-data-strip { animation-delay: 0.34s; }
+#gameOverScreen.active .tip-banner,     #reportScreen.active .tip-banner     { animation-delay: 0.38s; }
 
 @keyframes cardRise {
     from { opacity: 0; transform: translateY(14px); }
     to   { opacity: 1; transform: translateY(0); }
 }
 
-/* 等级标题：金色辉光呼吸，突出成就感 */
-.rank-title {
-    animation: rankGlowPulse 2.1s ease-in-out infinite;
-}
-
-@keyframes rankGlowPulse {
-    0%, 100% { text-shadow: 0 0 10px var(--accent-gold-glow); }
-    50%      { text-shadow: 0 0 22px var(--accent-gold-glow), 0 0 40px var(--accent-gold-glow); }
-}
+/* 等级徽章光环脉冲已在 .rank-badge::after 中定义（见上方 GAME OVER 区块） */
 
 /* ---- 13. 无障碍：尊重"减少动态效果"系统设置 ---- */
 @media (prefers-reduced-motion: reduce) {
@@ -1698,12 +1486,17 @@ body {
     .hit-particle,
     .multiplier-display.burst,
     .timer-value.critical,
-    #gameOverScreen.active .rank-card,
-    #gameOverScreen.active .interpret-card,
+    .rank-badge::after,
+    #gameOverScreen.active .rank-hero,
+    #gameOverScreen.active .interpret-text,
     #gameOverScreen.active .ability-card,
-    #gameOverScreen.active .sub-data-card,
-    #gameOverScreen.active .tip-card,
-    .rank-title {
+    #gameOverScreen.active .sub-data-strip,
+    #gameOverScreen.active .tip-banner,
+    #reportScreen.active .rank-hero,
+    #reportScreen.active .interpret-text,
+    #reportScreen.active .ability-card,
+    #reportScreen.active .sub-data-strip,
+    #reportScreen.active .tip-banner {
         animation: none !important;
     }
     .btn::after { transition: none !important; }

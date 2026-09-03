@@ -10,6 +10,22 @@
 ### Added
 - 暂无待发布内容
 
+## [1.0.2] - 2026-09-03
+
+### Added
+- 报告页（结算页 + 历史报告页）视觉改版：等级从文字改为 108px 圆形渐变光环徽章（S 金 / A 绿 / B 蓝，带呼吸光晕动画）、解读文字彻底去框、四维能力改为横向信息条（色环图标 + 大数值）、本局小记改为三栏统计条（竖分隔线）、训练建议保留色带强调、区块间距拉开 + 分区小标题引导、支持页面滚动
+- 分享卡片重写：等级圆环徽章（随等级变色 + 外发光）、四维能力 line-icon（Path2D 复用 HTML SVG 同源路径）、新增「本局小记」得分三栏、绿色 slogan 色带横幅、按内容高度自适应裁剪
+- 系统表情统一替换：等级标题 / 解读 / 训练建议 / 口号等全部改用与四维能力同源的线描 SVG 图标（奖牌 / 对勾 / 上升 / 星标 / 灯泡），历史 localStorage 旧数据自动清洗表情并回写，资源链接加版本号防缓存
+- 圆角矩形绘制兼容旧内核 WebView（原生 `ctx.roundRect` 缺失时自动降级为手动路径）
+
+### Changed
+- 分享卡纵向压缩更紧凑：720×1598 → 720×1508
+- 清理 372 行无用遗留 CSS（`stats-grid` / `stat-card` / `reaction-breakdown` / `leaderboard-*` / `report-entry-*` / `rule-*` 等）
+- 更新 `dist/` 构建产物并重建 `release/float_mini_tool.zip` 发布包（含上述全部改动）
+
+### Fixed
+- 修复历史报告页得分为 0 时误显示「—」（得分 0 正常显示；倍率 / 最快反应为 0 仍显示占位符）
+
 ## [1.0.1] - 2026-09-02
 
 ### Added
@@ -39,5 +55,6 @@
 - `release/` 发布产物（图标与可直接上传的 zip 包）
 - MIT License
 
+[1.0.2]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.2
 [1.0.1]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.1
 [1.0.0]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.0

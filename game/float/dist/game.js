@@ -319,6 +319,8 @@ const reportHint = document.getElementById('reportHint');
 
 // 报告详情页元素
 const reportDate = document.getElementById('reportDate');
+const reportRankHero = document.getElementById('reportRankHero');
+const reportRankLetter = document.getElementById('reportRankLetter');
 const reportRankTitle = document.getElementById('reportRankTitle');
 const reportRankTag = document.getElementById('reportRankTag');
 const reportInterpretText = document.getElementById('reportInterpretText');
@@ -339,6 +341,8 @@ const reportRetestBtn = document.getElementById('reportRetestBtn');
 const reportShareBtn = document.getElementById('reportShareBtn');
 
 // Game Over — 反应力报告面板元素
+const rankHero = document.getElementById('rankHero');
+const rankLetter = document.getElementById('rankLetter');
 const rankTitle = document.getElementById('rankTitle');
 const rankTag = document.getElementById('rankTag');
 const interpretText = document.getElementById('interpretText');
@@ -785,21 +789,36 @@ function triggerFlash(type) {
 // 等级元数据：S/A/B 三档
 const RANK_META = {
     S: {
-        title: '🎉反应力等级：S｜超敏捷',
+        letter: 'S',
+        title: '反应力等级：S｜超敏捷',
         tag: '超敏捷·反应小天才',
-        slogan: '原来我是反应小天才🥳'
+        slogan: '原来我是反应小天才'
     },
     A: {
-        title: '✨反应力等级：A｜稳定在线',
+        letter: 'A',
+        title: '反应力等级：A｜稳定在线',
         tag: '稳扎稳打·状态在线',
         slogan: '我的反应力状态还不错～'
     },
     B: {
-        title: '💪反应力等级：B｜有待提升',
+        letter: 'B',
+        title: '反应力等级：B｜有待提升',
         tag: '潜力选手·多多练习',
-        slogan: '反应力还有很大的成长空间💪'
+        slogan: '反应力还有很大的成长空间'
     }
 };
+
+// 等级标题前的线描图标（与四维能力同源风格，随 S/A/B 等级切换）
+// S=奖牌、A=对勾圆环、B=上升趋势；路径同时用于 HTML SVG 与分享卡 Path2D
+const RANK_TITLE_ICON_PATHS = {
+    S: 'M12 2a6 6 0 1 0 0 12a6 6 0 1 0 0-12 M15.477 12.89 17 22l-5-3-5 3 1.523-9.11',
+    A: 'M22 11.08V12a10 10 0 1 1-5.93-9.14 M22 4 12 14.01 9 11.01',
+    B: 'M23 6 13.5 15.5 8.5 10.5 1 18 M17 6 23 6 23 12'
+};
+
+// 解读/口号/页脚处的小星标（4 角 sparkle 与 5 角 star），仅用于分享卡 Canvas 绘制
+const SHARE_SPARK_PATH = 'M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z';
+const SHARE_STAR_PATH = 'M12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2';
 
 // 判定反应力等级
 // 输入：avgRt(平均正确反应时ms), accuracy(正确率%), switchCost(切换损耗ms)
@@ -849,7 +868,7 @@ function findWeakness(speedEval, accuracyEval, switchEval, focusEval) {
 
 // 个性化解读文案（根据等级+短板，精简单行版）
 function getInterpretText(rank, weakness) {
-    if (rank === 'S') return '又快又稳，切换自如，天赋很不错✨';
+    if (rank === 'S') return '又快又稳，切换自如，天赋很不错';
     if (rank === 'A') {
         if (weakness === 'switch') return '反应不错，规则切换还可以再加强';
         if (weakness === 'accuracy') return '手速很快，判断再稳一点就更好';
@@ -873,6 +892,24 @@ function getTipContent(weakness) {
 }
 
 // ── Game Over & Statistics Calculation ─────────────────────────────────────
+// 根据等级给徽章容器切换配色 class（rank-s / rank-a / rank-b），并联动等级标题图标
+function applyRankHeroClass(heroEl, rank) {
+    if (!heroEl) return;
+    heroEl.classList.remove('rank-s', 'rank-a', 'rank-b');
+    heroEl.classList.add('rank-' + rank.toLowerCase());
+    // 等级标题前的线描图标随等级切换（S=奖牌 A=对勾 B=上升）
+    const icon = heroEl.querySelector('.rank-title-icon path');
+    if (icon) {
+        icon.setAttribute('d', RANK_TITLE_ICON_PATHS[rank] || RANK_TITLE_ICON_PATHS.A);
+    }
+    // 将当前等级强调色提升到所在屏幕，供解读星标等屏内元素取用
+    const screenEl = heroEl.closest('.screen');
+    if (screenEl) {
+        const accentMap = { S: '#fbbf24', A: '#6ee7b7', B: '#93c5fd' };
+        screenEl.style.setProperty('--rank-accent', accentMap[rank] || '#fbbf24');
+    }
+}
+
 function endGame() {
     stopGameLoops();
     synth.stopBGM(); // 游戏结束进入报告页，暂停背景音
@@ -927,6 +964,8 @@ function endGame() {
     const tip = getTipContent(weakness);
 
     // ── 渲染结束页 ──
+    rankLetter.innerText = rankMeta.letter;
+    applyRankHeroClass(rankHero, rank);
     rankTitle.innerText = rankMeta.title;
     rankTag.innerText = rankMeta.tag;
     interpretText.innerText = interpret;
@@ -957,6 +996,7 @@ function endGame() {
         avgRepeatRt: avgRepeatRt,
         fastestRt: fastestRt,
         rank: rank,
+        rankLetter: rankMeta.letter,
         rankTitle: rankMeta.title,
         rankTag: rankMeta.tag,
         slogan: rankMeta.slogan,
@@ -997,6 +1037,21 @@ function endGame() {
 
 // ── 我的反应力报告（首页入口 + 详情页） ───────────────────────────────────
 
+// 彻底去除字符串中的系统表情（兼容历史 localStorage 中旧代码写入的带 emoji 文案）
+function stripEmoji(str) {
+    return String(str == null ? '' : str).replace(/\p{Extended_Pictographic}/gu, '');
+}
+
+// 清洗整份报告数据中所有字符串字段（rankTitle/slogan/interpretText/tipContent 等）
+function sanitizeReportData(data) {
+    if (!data || typeof data !== 'object') return data;
+    const clean = {};
+    for (const k in data) {
+        clean[k] = typeof data[k] === 'string' ? stripEmoji(data[k]) : data[k];
+    }
+    return clean;
+}
+
 // 首页：报告按钮一直显示，无需控制显隐
 function renderReportEntry() {
     // 按钮默认显示，无需额外操作
@@ -1014,9 +1069,20 @@ function showReport() {
         if (reportHint) reportHint.style.display = 'block';
         return;
     }
+    // 清洗历史数据中的系统表情（旧版本存的文案带 emoji），并回写一次让存储也干净
+    data = sanitizeReportData(data);
+    try {
+        const raw = JSON.stringify(data);
+        if (raw !== localStorage.getItem('float_last_report')) {
+            localStorage.setItem('float_last_report', raw);
+        }
+    } catch (e) { /* 写回失败不影响展示 */ }
     if (reportHint) reportHint.style.display = 'none';
 
     reportDate.innerText = data.date || '最近测试';
+    const reportRank = data.rankLetter || data.rank || 'A';
+    reportRankLetter.innerText = reportRank;
+    applyRankHeroClass(reportRankHero, reportRank);
     reportRankTitle.innerText = data.rankTitle || '';
     reportRankTag.innerText = data.rankTag || '';
     reportInterpretText.innerText = data.interpretText || '';
@@ -1030,9 +1096,10 @@ function showReport() {
     reportFocusVal.innerText = data.focusValue || (data.total + '题');
     reportFocusEval.innerText = data.focusEval || '';
 
-    reportSubScore.innerText = data.score ? data.score.toLocaleString() : '—';
-    reportSubPeak.innerText = data.peakMultiplier ? data.peakMultiplier + 'x' : '—';
-    reportSubFastest.innerText = data.fastestRt ? data.fastestRt + 'ms' : '—';
+    // 得分允许为 0（合法值要正常显示）；倍率/最快反应为 0 属异常才显示占位符
+    reportSubScore.innerText = (typeof data.score === 'number' && data.score >= 0) ? data.score.toLocaleString() : '—';
+    reportSubPeak.innerText = (typeof data.peakMultiplier === 'number' && data.peakMultiplier > 0) ? data.peakMultiplier + 'x' : '—';
+    reportSubFastest.innerText = (typeof data.fastestRt === 'number' && data.fastestRt > 0) ? data.fastestRt + 'ms' : '—';
 
     reportTipContent.innerText = data.tipContent || '';
 
@@ -1275,7 +1342,7 @@ if (reportShareBtn) {
         } catch (e) {
             data = null;
         }
-        if (data) handleShare(reportShareBtn, data);
+        if (data) handleShare(reportShareBtn, sanitizeReportData(data));
     });
 }
 
@@ -1310,11 +1377,11 @@ async function shareReport(snapshot) {
             return canvas.toDataURL('image/png');
         })();
         const content =
-            '60秒挑战完成！来看看我的反应力报告 ✨\n' +
+            '60秒挑战完成！来看看我的反应力报告\n' +
             snapshot.slogan + '\n' +
             `反应力等级：${snapshot.rank}｜反应速度：${snapshot.avgRt}ms\n` +
             `判断准确度：${snapshot.accuracy}%｜切换灵活性：${snapshot.switchEval}\n` +
-            '绿叶看指向 · 橙叶看移动 🍃';
+            '绿叶看指向 · 橙叶看移动';
         await miniTool.postNote({
             title: '飘 · 60秒测测你的反应力',
             content: content,
@@ -1341,20 +1408,82 @@ function ensureShareButton() {
 }
 
 // ── Share Card Renderer（反应力人设海报） ────────────────────────────────────
+// 与四维能力 SVG 图标同源的 Path2D 路径数据（保持视觉语言一致）
+const SHARE_ICON_PATHS = {
+    speed: 'M13 2L3 14L12 14L11 22L21 10L12 10Z',
+    accuracy: 'M21 12A9 9 0 1 1 3 12A9 9 0 1 1 21 12 M17 12A5 5 0 1 1 7 12A5 5 0 1 1 17 12 M13 12A1 1 0 1 1 11 12A1 1 0 1 1 13 12',
+    switch: 'M17 1L21 5L17 9 M3 11V9A4 4 0 0 1 7 5H21 M7 23L3 19L7 15 M21 13V15A4 4 0 0 1 17 19H3',
+    focus: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z M15 12A3 3 0 1 1 9 12A3 3 0 1 1 15 12'
+};
+
+// 分享海报配色：等级徽章环色 + 四维能力强调色，与报告页 CSS 变量一一对应
+const SHARE_RANK_COLORS = {
+    S: { ringA: '#fde68a', ringB: '#f59e0b', glow: 'rgba(251,191,36,0.55)', tag: '#fbbf24' },
+    A: { ringA: '#86efac', ringB: '#10b981', glow: 'rgba(16,185,129,0.50)', tag: '#6ee7b7' },
+    B: { ringA: '#93c5fd', ringB: '#3b82f6', glow: 'rgba(59,130,246,0.45)', tag: '#93c5fd' }
+};
+
+const SHARE_ABILITY_META = [
+    { key: 'speed',    color: '#38bdf8', label: '反应速度',   path: SHARE_ICON_PATHS.speed },
+    { key: 'accuracy', color: '#34d399', label: '判断准确度', path: SHARE_ICON_PATHS.accuracy },
+    { key: 'switch',   color: '#a78bfa', label: '切换灵活性', path: SHARE_ICON_PATHS.switch },
+    { key: 'focus',    color: '#fbbf24', label: '连续专注力', path: SHARE_ICON_PATHS.focus }
+];
+
+// 在 canvas 上绘制与 HTML 内联 SVG 同源的 line-icon（保持描边风格一致）
+function drawShareLineIcon(ctx, pathD, cx, cy, size, color) {
+    const p = new Path2D(pathD);
+    ctx.save();
+    ctx.translate(cx - size / 2, cy - size / 2);
+    ctx.scale(size / 24, size / 24);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke(p);
+    ctx.restore();
+}
+
+// 圆角矩形助手：优先用原生 ctx.roundRect（Chrome 99+/Safari 16+），
+// 旧内核 WebView 缺失时自动退化为手动路径绘制，保证分享卡在旧容器也能正常出图。
+// r 支持数字，或 [topLeft, topRight, bottomRight, bottomLeft] 数组（与原生 roundRect 一致）
+function drawRoundRect(ctx, x, y, w, h, r) {
+    if (typeof ctx.roundRect === 'function') {
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, r);
+        return;
+    }
+    const rr = Array.isArray(r) ? r : [r, r, r, r];
+    const tl = rr[0], tr = rr[1], br = rr[2], bl = rr[3];
+    ctx.beginPath();
+    ctx.moveTo(x + tl, y);
+    ctx.lineTo(x + w - tr, y);
+    ctx.arcTo(x + w, y, x + w, y + tr, tr);
+    ctx.lineTo(x + w, y + h - br);
+    ctx.arcTo(x + w, y + h, x + w - br, y + h, br);
+    ctx.lineTo(x + bl, y + h);
+    ctx.arcTo(x, y + h, x, y + h - bl, bl);
+    ctx.lineTo(x, y + tl);
+    ctx.arcTo(x, y, x + tl, y, tl);
+    ctx.closePath();
+}
+
 function renderShareCard(snapshot) {
     const canvas = document.createElement('canvas');
+    const CX = 360;
     canvas.width = 720;
-    canvas.height = 1200;
+    canvas.height = 1700; // 先用足量高度绘制，最终按实际内容裁剪
     const ctx = canvas.getContext('2d');
+    const rc = SHARE_RANK_COLORS[snapshot.rank] || SHARE_RANK_COLORS.A;
 
     // 深海渐变背景
-    const bgGrad = ctx.createRadialGradient(360, 380, 60, 360, 600, 700);
+    const bgGrad = ctx.createRadialGradient(360, 380, 60, 360, 700, 950);
     bgGrad.addColorStop(0, '#0d3663');
     bgGrad.addColorStop(1, '#03152b');
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // 水流装饰线
+    // 水流装饰线（顶部）
     ctx.strokeStyle = 'rgba(255,255,255,0.08)';
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -1362,100 +1491,249 @@ function renderShareCard(snapshot) {
     ctx.quadraticCurveTo(180, 130, 360, 180);
     ctx.quadraticCurveTo(540, 230, 720, 180);
     ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(0, 1020);
-    ctx.quadraticCurveTo(180, 970, 360, 1020);
-    ctx.quadraticCurveTo(540, 1070, 720, 1020);
-    ctx.stroke();
 
-    // 顶部 logo 绿叶
-    drawLeaf(ctx, 360, 170, 90, 117, '#58c27a', '#319451', '#a7f0bd', 0);
-
-    // 产品名
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+
+    // 顶部 logo 绿叶 + 产品名
+    drawLeaf(ctx, 360, 162, 82, 107, '#58c27a', '#319451', '#a7f0bd', 0);
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 34px -apple-system, "PingFang SC", sans-serif';
-    ctx.fillText('飘 · 60秒测测你的反应力', 360, 300);
+    ctx.fillText('飘 · 60秒测测你的反应力', 360, 278);
 
-    // 分隔线
     ctx.strokeStyle = 'rgba(255,255,255,0.18)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(200, 345);
-    ctx.lineTo(520, 345);
+    ctx.moveTo(200, 320);
+    ctx.lineTo(520, 320);
     ctx.stroke();
 
-    // 海报主标题
     ctx.font = '500 24px -apple-system, "PingFang SC", sans-serif';
-    ctx.fillStyle = '#cbd5e1';
-    ctx.fillText('我的反应力报告', 360, 400);
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('我的反应力报告', 360, 366);
 
-    // 等级展示（大卡片）
-    const rankCardX = 100, rankCardY = 440, rankCardW = 520, rankCardH = 130;
-    ctx.fillStyle = 'rgba(255,255,255,0.10)';
+    // ── 等级徽章：整张海报的视觉焦点，与报告页 rank-badge 完全同构 ──
+    const badgeCY = 486;
+    const ringOuterR = 86;
+    const ringInnerR = 76;
+
+    ctx.save();
+    ctx.shadowColor = rc.glow;
+    ctx.shadowBlur = 55;
     ctx.beginPath();
-    ctx.roundRect(rankCardX, rankCardY, rankCardW, rankCardH, 20);
+    ctx.arc(CX, badgeCY, ringInnerR, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.02)';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    ctx.restore();
 
-    // 等级标题
-    ctx.font = 'bold 36px -apple-system, "PingFang SC", sans-serif';
-    ctx.fillStyle = '#fbbf24';
-    ctx.fillText(snapshot.rankTitle, 360, rankCardY + 50);
-    // 等级标签
-    ctx.font = '500 22px -apple-system, "PingFang SC", sans-serif';
-    ctx.fillStyle = '#a7f0bd';
-    ctx.fillText(snapshot.rankTag, 360, rankCardY + 95);
+    // 渐变圆环（描边质感）
+    ctx.beginPath();
+    ctx.arc(CX, badgeCY, ringOuterR, 0, Math.PI * 2);
+    ctx.arc(CX, badgeCY, ringInnerR, 0, Math.PI * 2, true);
+    const ringGrad = ctx.createLinearGradient(CX - ringOuterR, badgeCY - ringOuterR, CX + ringOuterR, badgeCY + ringOuterR);
+    ringGrad.addColorStop(0, rc.ringA);
+    ringGrad.addColorStop(1, rc.ringB);
+    ctx.fillStyle = ringGrad;
+    ctx.fill();
 
-    // 四大能力精简列表
-    const abilities = [
-        { icon: '⚡', label: '反应速度', value: snapshot.avgRt + 'ms' },
-        { icon: '🎯', label: '判断准确度', value: snapshot.accuracy + '%' },
-        { icon: '🔄', label: '切换灵活性', value: snapshot.switchEval },
-        { icon: '🧠', label: '连续专注力', value: snapshot.total + '题' }
-    ];
+    // 徽章内圆
+    ctx.beginPath();
+    ctx.arc(CX, badgeCY, ringInnerR, 0, Math.PI * 2);
+    const innerGrad = ctx.createRadialGradient(CX - 24, badgeCY - 24, 4, CX, badgeCY, ringInnerR);
+    innerGrad.addColorStop(0, 'rgba(255,255,255,0.18)');
+    innerGrad.addColorStop(1, 'rgba(255,255,255,0.02)');
+    ctx.fillStyle = innerGrad;
+    ctx.fill();
 
-    const listStartY = 620;
-    const rowH = 82;
-    abilities.forEach((ab, i) => {
-        const y = listStartY + i * rowH;
-        // 行背景
-        ctx.fillStyle = 'rgba(255,255,255,0.06)';
-        ctx.beginPath();
-        ctx.roundRect(120, y, 480, 68, 14);
+    // 等级字母
+    ctx.font = '900 74px -apple-system, "PingFang SC", sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.45)';
+    ctx.shadowBlur = 12;
+    ctx.fillText(snapshot.rank || 'A', CX, badgeCY + 3);
+    ctx.restore();
+
+    // 等级标题 & 标签（标题左侧配等级线描图标：S=奖牌 A=对勾 B=上升）
+    const rankTitleText = snapshot.rankTitle || '';
+    const titleY = badgeCY + ringOuterR + 50;
+    ctx.font = 'bold 32px -apple-system, "PingFang SC", sans-serif';
+    const titleW = ctx.measureText(rankTitleText).width;
+    const titleIconSize = 24;
+    drawShareLineIcon(ctx, RANK_TITLE_ICON_PATHS[snapshot.rank] || RANK_TITLE_ICON_PATHS.A,
+        CX - titleW / 2 - titleIconSize / 2 - 12, titleY, titleIconSize, rc.tag);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(rankTitleText, CX, titleY);
+
+    ctx.font = '600 22px -apple-system, "PingFang SC", sans-serif';
+    ctx.fillStyle = rc.tag;
+    ctx.fillText(snapshot.rankTag || '', CX, badgeCY + ringOuterR + 84);
+
+    // 个性化解读（句尾配等级色 4 角 sparkle）
+    const interpText = snapshot.interpretText || '';
+    const interpY = badgeCY + ringOuterR + 118;
+    ctx.font = '500 21px -apple-system, "PingFang SC", sans-serif';
+    const interpW = ctx.measureText(interpText).width;
+    const sparkSize = 13;
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillText(interpText, CX, interpY);
+    drawShareLineIcon(ctx, SHARE_SPARK_PATH, CX + interpW / 2 + sparkSize / 2 + 10, interpY, sparkSize, rc.tag);
+
+    // ── 分区：四维能力（横向信息条，与报告页 ability-card 同构）──
+    const rowX = 100, rowW = 520, rowH = 78, rowGap = 13;
+    let sectionY = badgeCY + ringOuterR + 160;
+
+    ctx.textAlign = 'left';
+    ctx.font = '700 20px -apple-system, "PingFang SC", sans-serif';
+    ctx.fillStyle = 'rgba(203,213,225,0.6)';
+    ctx.fillText('四维能力', rowX, sectionY);
+
+    let rowY = sectionY + 26;
+
+    const abilityValues = {
+        speed: snapshot.speedValue || (snapshot.avgRt + 'ms'),
+        accuracy: snapshot.accuracyValue || (snapshot.accuracy + '%'),
+        switch: snapshot.switchValue || ('+' + snapshot.switchCost + 'ms'),
+        focus: snapshot.focusValue || (snapshot.total + '题')
+    };
+    const abilityEvals = {
+        speed: snapshot.speedEval || '',
+        accuracy: snapshot.accuracyEval || '',
+        switch: snapshot.switchEval || '',
+        focus: snapshot.focusEval || ''
+    };
+
+    SHARE_ABILITY_META.forEach((ab) => {
+        // 行底 + 左侧色条（对应 CSS 的 border-left 强调色）
+        drawRoundRect(ctx, rowX, rowY, rowW, rowH, 18);
+        ctx.fillStyle = 'rgba(255,255,255,0.045)';
         ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
 
-        // icon
-        ctx.font = '28px -apple-system, "PingFang SC", sans-serif';
+        ctx.save();
+        drawRoundRect(ctx, rowX, rowY, 5, rowH, [18, 0, 0, 18]);
+        ctx.fillStyle = ab.color;
+        ctx.fill();
+        ctx.restore();
+
+        // icon 圆
+        const iconCX = rowX + 50, iconCY = rowY + rowH / 2;
+        ctx.beginPath();
+        ctx.arc(iconCX, iconCY, 26, 0, Math.PI * 2);
+        ctx.fillStyle = ab.color + '2E';
+        ctx.fill();
+        drawShareLineIcon(ctx, ab.path, iconCX, iconCY, 26, ab.color);
+
+        // label + eval
         ctx.textAlign = 'left';
-        ctx.fillText(ab.icon, 150, y + 38);
+        ctx.font = '600 22px -apple-system, "PingFang SC", sans-serif';
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fillText(ab.label, rowX + 92, rowY + rowH / 2 - 13);
 
-        // label
-        ctx.font = '500 20px -apple-system, "PingFang SC", sans-serif';
-        ctx.fillStyle = '#94a3b8';
-        ctx.fillText(ab.label, 200, y + 38);
+        ctx.font = '700 19px -apple-system, "PingFang SC", sans-serif';
+        ctx.fillStyle = ab.color;
+        ctx.fillText(abilityEvals[ab.key], rowX + 92, rowY + rowH / 2 + 17);
 
         // value
-        ctx.font = 'bold 26px -apple-system, "PingFang SC", sans-serif';
-        ctx.fillStyle = '#ffffff';
         ctx.textAlign = 'right';
-        ctx.fillText(ab.value, 570, y + 38);
-        ctx.textAlign = 'center';
+        ctx.font = 'bold 30px -apple-system, "PingFang SC", sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(abilityValues[ab.key], rowX + rowW - 24, rowY + rowH / 2 + 2);
+
+        rowY += rowH + rowGap;
     });
 
-    // 传播 slogan（核心可晒文案）
-    ctx.font = 'bold 28px -apple-system, "PingFang SC", sans-serif';
-    ctx.fillStyle = '#58c27a';
-    ctx.fillText(snapshot.slogan, 360, 1000);
+    // ── 分区：本局小记（无边框统计条，与报告页 sub-data-strip 同构）──
+    sectionY = rowY + 10;
+    ctx.textAlign = 'left';
+    ctx.font = '700 20px -apple-system, "PingFang SC", sans-serif';
+    ctx.fillStyle = 'rgba(203,213,225,0.6)';
+    ctx.fillText('本局小记', rowX, sectionY);
 
-    // 底部氛围感文案
+    const subY = sectionY + 50;
+    const subItems = [
+        { val: (snapshot.score || 0).toLocaleString(), key: '本局得分' },
+        { val: (snapshot.peakMultiplier || 1) + 'x', key: '最高倍率' },
+        { val: (snapshot.fastestRt > 0 ? snapshot.fastestRt + 'ms' : '—'), key: '最快反应' }
+    ];
+    const subColW = rowW / 3;
+    ctx.textAlign = 'center';
+    subItems.forEach((it, i) => {
+        const colCX = rowX + subColW * i + subColW / 2;
+        ctx.font = 'bold 30px -apple-system, "PingFang SC", sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(it.val, colCX, subY);
+        ctx.font = '500 18px -apple-system, "PingFang SC", sans-serif';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText(it.key, colCX, subY + 32);
+
+        if (i > 0) {
+            ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(rowX + subColW * i, subY - 26);
+            ctx.lineTo(rowX + subColW * i, subY + 42);
+            ctx.stroke();
+        }
+    });
+
+    // ── 训练建议 / slogan 色带（与报告页 tip-banner 同构）──
+    const tipY = subY + 58;
+    const tipH = 108;
+    drawRoundRect(ctx, rowX, tipY, rowW, tipH, 20);
+    ctx.fillStyle = 'rgba(16,185,129,0.10)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(16,185,129,0.28)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 27px -apple-system, "PingFang SC", sans-serif';
+    const sloganText = snapshot.slogan || '';
+    const sloganW = ctx.measureText(sloganText).width;
+    const sloganIconSize = 18;
+    // slogan 左侧配 5 角星线描图标，与色带同色
+    drawShareLineIcon(ctx, SHARE_STAR_PATH, CX - sloganW / 2 - sloganIconSize / 2 - 10, tipY + 38, sloganIconSize, '#6ee7b7');
+    ctx.fillStyle = '#6ee7b7';
+    ctx.fillText(sloganText, CX, tipY + 38);
+
+    ctx.font = '500 19px -apple-system, "PingFang SC", sans-serif';
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillText(snapshot.tipContent || '', CX, tipY + 72);
+
+    // ── 底部品牌标语 ──
+    const footerY = tipY + tipH + 38;
     ctx.font = '500 18px -apple-system, "PingFang SC", sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.45)';
-    ctx.fillText('绿叶看指向 · 橙叶看移动', 360, 1050);
-    ctx.fillText('测一测，看看你的反应力是什么样✨', 360, 1085);
+    ctx.fillText('绿叶看指向 · 橙叶看移动', CX, footerY);
+    const footerSloganText = '测一测，看看你的反应力是什么样';
+    const footerW = ctx.measureText(footerSloganText).width;
+    const footerSparkSize = 12;
+    ctx.fillText(footerSloganText, CX, footerY + 28);
+    drawShareLineIcon(ctx, SHARE_SPARK_PATH, CX + footerW / 2 + footerSparkSize / 2 + 8, footerY + 28, footerSparkSize, 'rgba(255,255,255,0.55)');
+
+    // 底部水流装饰线
+    const bottomLineY = footerY + 62;
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, bottomLineY);
+    ctx.quadraticCurveTo(180, bottomLineY - 50, 360, bottomLineY);
+    ctx.quadraticCurveTo(540, bottomLineY + 50, 720, bottomLineY);
+    ctx.stroke();
+
+    // 按实际内容高度裁剪画布，避免底部留白过多
+    const finalHeight = Math.min(canvas.height, Math.ceil(bottomLineY + 60));
+    if (finalHeight < canvas.height) {
+        const cropped = document.createElement('canvas');
+        cropped.width = canvas.width;
+        cropped.height = finalHeight;
+        cropped.getContext('2d').drawImage(canvas, 0, 0);
+        return cropped;
+    }
 
     return canvas;
 }
