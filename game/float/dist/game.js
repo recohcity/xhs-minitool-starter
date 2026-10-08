@@ -2257,32 +2257,32 @@ function handleShare(btn, snapshot) {
     }, 2500);
 }
 
-// 通用分享函数（v7·水影笺对齐版）：实测一次成功的小工具（水影笺）实现极简——
-// dataURL 直传 + await postNote + 不传 tags 字段。本版对齐：去掉 payload.tags
-// （容器对 tags 格式校验严格，10 个空格分隔话题可能触发静默拒绝，真机「仅首次成功」最大嫌疑），
-// 话题只放 content（"#名称[话题]#" 序列化，发布页蓝字已真机验证）。
-// filePath 就绪（后台预热完成）仍优先用（真机验证过稳定），未就绪 dataURL 直传。
-function shareReport(snapshot, _retried) {
-    if (!snapshot || !snapshot.shareImageDataUrl) return Promise.resolve(false);
+// 通用分享函数（v8·filePath 确保版）：真机反复验证的可靠路径 = filePath（dataURL 直传不稳）。
+// 水影笺（用户实测一次成功）用 async/await postNote 证明容器接受异步调用——
+// 「必须同步栈内发出」的理论作废。v8：点击后先确保 filePath（等待落盘，3s 上限），
+// 再 await postNote(filePath)；落盘失败才回退 dataURL。payload 不传 tags 字段
+// （容器对 tags 校验严格可能静默吞掉整个 postNote）；话题仅放 content（"#名称[话题]#" 蓝字序列化）。
+async function shareReport(snapshot, _retried) {
+    if (!snapshot || !snapshot.shareImageDataUrl) return false;
     const miniTool = window.xhs && window.xhs.miniTool;
     if (!miniTool) {
-        // 桥未注入：等待注入后自动重发（用户感知为一次点击；warmup 轮询也在后台预热）。
-        // 注：此分支的 postNote 发生在异步回调（非同步栈），容器接受异步 postNote
-        // （600ms 挂起补发即异步且真机验证有效），关键仍是图片地址就绪。
-        return waitForBridge(2500).then(function (ok) {
-            return ok ? shareReport(snapshot, _retried) : false;
-        });
+        // 桥未注入：等待注入后自动重发（用户感知为一次点击；warmup 轮询也在后台预热）
+        const ok = await waitForBridge(2500);
+        return ok ? shareReport(snapshot, _retried) : false;
     }
-    // 铁律：点击手势同步栈内绝不发起 writeTempFile——容器桥为串行队列，
-    // 同步发起落盘会占住桥通道，postNote 排队被挂起（真机「仅首次成功」根因之一）。
-    // filePath 就绪（后台预热已完成）→ 直接发 filePath；未就绪 → dataURL 直传（水影笺同路径）。
-    const imageUrl = snapshot.shareImagePath || snapshot.shareImageDataUrl;
+    // 确保图片地址：filePath 就绪（后台预热完成）直接用；未就绪等落盘（3s 上限），
+    // 落盘失败/超时才回退 dataURL（水影笺同路径，能成但不如 filePath 稳）
+    let imageUrl = snapshot.shareImagePath;
+    if (!imageUrl) {
+        imageUrl = await ensureShareImage(snapshot);
+        if (!imageUrl) imageUrl = snapshot.shareImageDataUrl;
+    }
     // 人话化数值：反应速度用秒，不用毫秒
     const rtMs = snapshot.avgRt != null ? snapshot.avgRt : snapshot.speedValue;
     const sec = (rtMs != null && !isNaN(rtMs)) ? (Number(rtMs) / 1000).toFixed(2) : '—';
     const acc = snapshot.accuracy != null ? snapshot.accuracy : snapshot.accuracyValue;
     // 话题标签（最多 10 个）：仅放 content，用 "#名称[话题]#" 序列化格式还原真实话题（蓝字）。
-    // 注意：不传 postNote 的 tags 字段——水影笺不传即可用，传 10 话题空格分隔可能被容器校验拒绝。
+    // 注意：不传 postNote 的 tags 字段——容器对 tags 校验严格，10 话题空格分隔可能触发静默拒绝。
     const noteTags = ['反应力测试', '反应力训练', '反应力', '专注力', '脑力挑战', '手速挑战', '小游戏', '趣味测试', '挑战自己', '来测一测'];
     const tagMarkup = noteTags.map(t => '#' + t + '[话题]#').join(' ');
     const payload = {
@@ -2298,41 +2298,44 @@ function shareReport(snapshot, _retried) {
         pageType: 'photo_publish',
         mediaInfo: { image_resources: [{ url: imageUrl }] }
     };
-    // ② 挂起兜底：容器偶发吞掉 postNote（Promise 不 resolve 不 reject），600ms 后同 payload 补发一次
-    //    （filePath 若已就绪自动优先；成功跳转后页面销毁，定时器不再触发）
+    // ② 挂起兜底：容器偶发吞掉 postNote（Promise 不 resolve 不 reject），600ms 后补发一次
+    //    （补发时 filePath 大概率已就绪——首次 ensureShareImage 已落盘，自动走 filePath）
     const swallowTimer = setTimeout(function () {
         if (!_retried) {
             shareReport(snapshot, true).catch(function () {});
         }
     }, 600);
-    let p = null;
     try {
-        p = miniTool.postNote(payload); // 同步栈内发出，绝不在其前 await
-    } catch (e) {
-        clearTimeout(swallowTimer);
-        console.warn('share postNote sync throw:', e);
-        // ③ 同步抛出（罕见）：400ms 后补发一次
-        if (!_retried) {
-            return new Promise(r => setTimeout(r, 400)).then(() => shareReport(snapshot, true));
-        }
-        return Promise.resolve(false);
-    }
-    if (!p || typeof p.then !== 'function') { // 低版本桥同步返回：视为成功
-        clearTimeout(swallowTimer);
-        return Promise.resolve(true);
-    }
-    return p.then(function () {
+        await miniTool.postNote(payload); // 水影笺同款 async/await（容器接受异步调用）
         clearTimeout(swallowTimer);
         return true;
-    }, function (e) {
+    } catch (e) {
         clearTimeout(swallowTimer);
         console.warn('share report failed:', e);
-        // ③ 首次失败（常见于容器桥首次调用被吞）后自动补一次
+        // ③ 首次失败后 400ms 自动补一次（filePath 已落盘则自动优先）
         if (!_retried) {
-            return new Promise(r => setTimeout(r, 400)).then(() => shareReport(snapshot, true));
+            await new Promise(r => setTimeout(r, 400));
+            return shareReport(snapshot, true);
         }
         return false;
-    });
+    }
+}
+
+// 确保分享图已落盘为 filePath：点击时强制新发起一次落盘（不依赖可能挂起的旧预热），
+// 1.5s 上限——正常情况 100-500ms 完成，点击即拿 filePath 首发；挂起超时立即回退 dataURL
+// （不拖 3s 让用户干等；新发起的落盘若稍后完成仍回填 shareImagePath，600ms 补发自动走 filePath）。
+async function ensureShareImage(snapshot) {
+    if (snapshot.shareImagePath) return snapshot.shareImagePath;
+    if (!snapshot.shareImageDataUrl) return null;
+    const miniTool = window.xhs && window.xhs.miniTool;
+    if (!miniTool || typeof miniTool.writeTempFile !== 'function') return null;
+    snapshot._prewarm = null; // 清旧缓存（可能挂起中），强制新发起
+    const task = prewarmShareImage(snapshot);
+    const fp = await Promise.race([
+        Promise.resolve(task),
+        new Promise(function (r) { setTimeout(function () { r(null); }, 1500); })
+    ]);
+    return fp || null;
 }
 
 // 等待容器桥注入：轮询 window.xhs.miniTool 出现，注入后立即预热通道。
