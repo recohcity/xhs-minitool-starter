@@ -3,7 +3,7 @@
 用 AI 开发工具（Trae / Claude Code / Cursor / Codex 等）+ 本 skill，把一个创意变成可发布到小红书「Builder hub → 小工具」的合规 zip 包。
 
 > 适用读者：想用 AI（Vibe Coding）开发小红书小工具的创作者 / 开发者。
-> 规范来源：小红书官方「小工具容器・能力清单」（minitool-zip-builder v1.6.0，随官方不定期更新）。
+> 规范来源：小红书官方「小工具容器・能力清单」（minitool-zip-builder v1.7.0，随官方不定期更新）。
 
 ---
 
@@ -122,7 +122,7 @@ mkdir -p .codex/skills && cp -r .skill/minitool-zip-builder .codex/skills/
 
 ## 5. Skill 内置开发工作流
 
-AI 严格执行官方 v1.6.0 的 7 步流程（每步先读对应 reference，不凭记忆产出）：
+AI 严格执行官方 v1.7.0 的 7 步流程（每步先读对应 reference，不凭记忆产出）：
 
 ```
 ① 编写/适配 HTML ──► 读 zip-artifact-spec.md
@@ -271,7 +271,7 @@ unzip -l tool.zip | grep -E "node_modules|\.DS_Store|\.map|config\."
 不能引外部 CDN，但可以把框架文件下载后打进 zip 用相对路径引用（注意体积，小工具推荐原生 JS 保持轻量）。
 
 **Q9：官方规范更新了怎么办？**
-Skill 头部标注了规范版本（当前 v1.6.0）。官方 skill 会不定期更新，发布地址形如 `https://fe-static.xhscdn.com/mini-tool/<时间戳>/minitool-zip-builder-<版本>.skill`（具体以 Builder hub 文档页为准）。更新流程：下载最新 `.skill` 包 → 解压覆盖 `.skill/minitool-zip-builder/` → **保留项目沉淀文档 `references/optimization-experience.md`（若被覆盖则从 git 历史恢复）** → 按新版本自检清单重新校验产物。
+Skill 头部标注了规范版本（当前 v1.7.0）。官方 skill 会不定期更新，发布地址形如 `https://fe-static.xhscdn.com/mini-tool/<时间戳>/minitool-zip-builder-<版本>.skill`（具体以 Builder hub 文档页为准）。更新流程：下载最新 `.skill` 包 → 解压覆盖 `.skill/minitool-zip-builder/` → **保留项目沉淀文档 `references/optimization-experience.md`（若被覆盖则从 git 历史恢复）** → 按新版本自检清单重新校验产物。
 
 ---
 
