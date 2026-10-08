@@ -2303,10 +2303,18 @@ function shareReport(snapshot, _retried) {
         mediaInfo: { image_resources: [{ url: imageUrl }] },
         tags: noteTags.join(' ')
     };
-    // ② 挂起兜底：容器吞掉 postNote 时 Promise 既不 resolve 也不 reject，600ms 后视为被吞自动补发
+    // ② 挂起兜底：容器吞掉 postNote 时 Promise 既不 resolve 也不 reject。
+    //    600ms 后若 filePath 已就绪（首发 dataURL 被吞、落盘已完成）→ 用 filePath 补发；
+    //    仍未就绪 → 重新发起落盘，就绪后再补一次（dataURL 重发无意义，不再重复发同地址）。
     const swallowTimer = setTimeout(function () {
-        if (!_retried) {
+        if (_retried) return;
+        if (snapshot.shareImagePath) {
             shareReport(snapshot, true).catch(function () {});
+        } else {
+            snapshot._prewarm = null; // 旧发起已挂起 600ms：清缓存强制重新落盘（旧调用若稍后完成仍会回填 filePath）
+            prewarmShareImage(snapshot).then(function (fp) {
+                if (fp && !_retried) shareReport(snapshot, true).catch(function () {});
+            });
         }
     }, 600);
     let p = null;
@@ -2387,29 +2395,40 @@ function warmupBridge() {
 function prewarmShareImage(snapshot) {
     if (!snapshot || !snapshot.shareImageDataUrl) return Promise.resolve(null);
     if (snapshot.shareImagePath) return Promise.resolve(snapshot.shareImagePath);
-    if (snapshot._prewarm) return snapshot._prewarm;
     const miniTool = window.xhs && window.xhs.miniTool;
     if (!miniTool || typeof miniTool.writeTempFile !== 'function') {
         return Promise.resolve(null);
     }
-    let p = null;
-    try {
-        p = miniTool.writeTempFile({ data: snapshot.shareImageDataUrl });
-    } catch (e) {
-        return Promise.resolve(null); // 桥异常：点击时回退「手势内写入 + 自动补一次」
-    }
-    if (!p || typeof p.then !== 'function') return Promise.resolve(null); // 低版本桥可能同步返回
-    const tracked = Promise.resolve(p).then(function (temp) {
-        if (temp && temp.filePath) {
-            snapshot.shareImagePath = temp.filePath;
-            return temp.filePath;
+    // 容器偶发「静默挂起」writeTempFile（不 resolve 不 reject）：1.2s 判失败并清缓存，
+    // 允许后续（点击时）重新发起，绝不让挂起的 _prewarm 永久占用导致 filePath 永不就绪。
+    const attempt = function () {
+        let p = null;
+        try {
+            p = miniTool.writeTempFile({ data: snapshot.shareImageDataUrl });
+        } catch (e) {
+            return Promise.resolve(null); // 桥异常：点击时回退 dataURL 兜底
         }
-        return null;
-    }).catch(function () {
-        return null; // 预热失败不阻塞：点击时回退「手势内写入 + 自动补一次」
-    });
-    snapshot._prewarm = tracked;
-    return tracked;
+        if (!p || typeof p.then !== 'function') return Promise.resolve(null); // 低版本桥可能同步返回
+        const done = Promise.resolve(p).then(function (temp) {
+            if (temp && temp.filePath) {
+                snapshot.shareImagePath = temp.filePath;
+                return temp.filePath;
+            }
+            return null;
+        }).catch(function () {
+            return null; // 预热失败不阻塞：点击时回退 dataURL 兜底
+        });
+        return Promise.race([
+            done,
+            new Promise(function (res) { setTimeout(function () { res(null); }, 1200); })
+        ]).then(function (v) {
+            if (!v) snapshot._prewarm = null; // 失败/超时：清缓存允许重试（挂起的原始 Promise 若稍后完成仍会回填 shareImagePath）
+            return v;
+        });
+    };
+    if (snapshot._prewarm) return snapshot._prewarm;
+    snapshot._prewarm = attempt();
+    return snapshot._prewarm;
 }
 
 // 分享战绩：渲染战绩卡片 → postNote（data:uri 直接作为图片资源）
