@@ -2527,9 +2527,10 @@ function wrapShareText(ctx, text, maxWidth, maxLines) {
     return lines;
 }
 
-// 分享图缩小导出：720 宽渲染 → 540 宽导出 + JPEG 0.82，把过桥体积压到 ~30KB。
-// 真机经验：postNote 的 mediaInfo 传 dataURL 时体积越小首次过桥越稳（810KB→57KB 后
-// 点击即弹页；再压一档让 dataURL 兜底路径也足够稳，filePath 未就绪时不必冒险 await）
+// 分享图导出：540 宽 PNG——对齐两个实测一次成功的参考实现（水影笺、cute-face-grid
+// 均为 canvas.toDataURL('image/png') 直传 postNote）。历版真机反复证明 JPEG dataURL
+// 不稳定（时好时坏），PNG 在两个参考小工具上稳定一次弹出；体积 ~150-400KB 可接受
+// （容器对 PNG dataURL 解码最友好，官方示例也是 data:image/png）。
 function exportShareCard(canvas) {
     try {
         const w = 540;
@@ -2539,9 +2540,9 @@ function exportShareCard(canvas) {
         small.height = h;
         const sctx = small.getContext('2d');
         sctx.drawImage(canvas, 0, 0, w, h);
-        return small.toDataURL('image/jpeg', 0.82);
+        return small.toDataURL('image/png');
     } catch (e) {
-        return canvas.toDataURL('image/jpeg', 0.85); // 缩小失败回退原尺寸导出
+        return canvas.toDataURL('image/png'); // 缩小失败回退原尺寸导出
     }
 }
 
