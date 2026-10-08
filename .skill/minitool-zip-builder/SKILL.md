@@ -29,6 +29,7 @@ metadata:
 5. **JS 兼容性** — 先读 [js-compatibility.md](references/js-compatibility.md)：以 Android 8.1 出场 Chrome / WebView 61 为最低基线；直接交付的 JS 可使用 ES2017，更新语法须由已有构建链转译，Web API 须做能力检测
 6. **CSS 兼容性** — 先读 [css-compatibility.md](references/css-compatibility.md)：采用“Chrome 61 基线层 + 能力检测增强层”；只为实际使用的新能力提供局部回退，不维护两套完整 CSS
 7. **跨端适配** — 先读 [cross-platform-h5.md](references/cross-platform-h5.md)：触摸、滚动、安全区、PC vs 真机差异
+8. **分享 / 发布功能** — 实现分享按钮、发布笔记（postNote）、分享图等任何分享链路时，先读 [share-best-practices.md](references/share-best-practices.md)：**分享按钮必须 pointerdown 触发（容器抑制首次触摸合成的 click，click 绑定必然「首次要点 2 次」）；postNote 用 PNG dataURL 直传 + tags 字段 + 零 writeTempFile**；附可直接照抄的绑定与 payload 代码
 8. **性能设计** — 先读 [performance-budget.md](references/performance-budget.md)：控制源码 / 静态数据 / Base64 / 媒体体积；使用 WebGL 时必须控制 GPU 资源，并提供运行时降级
 9. **正确性自查** — 静态核对页面能正常运行、无违规能力（被禁 API 无调用 / 残留、脚本加载顺序、引用资源都在 zip 内、改写时未误改业务逻辑），见 [zip-artifact-spec.md](references/zip-artifact-spec.md) 自检清单
 10. **审计并打包** — 按 [performance-budget.md](references/performance-budget.md) 的环境分支选择 Node、Python 或人工审计；修复全部错误，逐条核对各 reference 末尾的自检清单后生成待上传 zip。审计脚本是辅助工具，不得因运行时缺失跳过门禁
@@ -49,4 +50,5 @@ metadata:
 | [js-compatibility.md](references/js-compatibility.md) | 写 JS / 选择构建产物时：Android 8.1 出场 Chrome / WebView 61 最低基线、Web API 检测与局部降级 |
 | [css-compatibility.md](references/css-compatibility.md) | 写 CSS / 选择构建产物时：Chrome 61 基线、能力检测、现代 CSS 增强与局部回退 |
 | [cross-platform-h5.md](references/cross-platform-h5.md) | 适配多端时：触摸、滚动、安全区、PC 模拟器与真机差异 |
+| [share-best-practices.md](references/share-best-practices.md) | 实现分享按钮 / 发布笔记（postNote）/ 分享图时：分享按钮 pointerdown 绑定、dataURL+tags+零 writeTempFile 的稳定 payload、已被真机证伪的坑（勿重走） |
 | [performance-budget.md](references/performance-budget.md) | 开发和交付前：包体、静态数据、Base64、媒体、长列表与 WebGL 资源控制和降级 |
