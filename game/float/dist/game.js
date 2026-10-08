@@ -2227,15 +2227,19 @@ if (viewReportBtn) {
     viewReportBtn.addEventListener('click', showReport);
 }
 
-// 分享按钮统一处理：用 CSS class 防重复（不写 disabled / 不改文本，避免在 postNote
-// 前触发强制重排拖慢手势），首次点击立即、同步、纯净地调用 postNote
+// 分享按钮统一处理：用 CSS class 防重复。v10 起点击后可能等待落盘最多 5s（filePath 确保制），
+// 按钮文字切「分享中…」给用户明确反馈（postNote 在 async 等待后，改文本不影响链路）；
+// 完成后恢复原文字。
 function handleShare(btn, snapshot) {
     if (!snapshot || btn.dataset.sharing === '1') return;
     btn.dataset.sharing = '1';
     btn.classList.add('is-sharing');
+    const origText = btn.textContent;
+    btn.textContent = '分享中…';
     const settle = () => {
         btn.dataset.sharing = '';
         btn.classList.remove('is-sharing');
+        if (btn.textContent !== origText) btn.textContent = origText;
     };
     let p = null;
     try {
@@ -2250,11 +2254,11 @@ function handleShare(btn, snapshot) {
         return;
     }
     // 超时兜底：容器弹出发布页后可能不返回 JS（Promise 挂起）。
-    // 2.5s 内未确认成功即恢复按钮，避免用户在发布页弹出前盲目连点；
-    // 若首次调用确实被吞，2.5s 后按钮恢复可再点（此时桥已预热、filePath 已就绪，成功率高）
+    // 6.5s 内未确认成功即恢复按钮（覆盖 v10 落盘等待最多 5s + postNote 正常耗时），
+    // 避免按钮卡在「分享中…」；若首次调用确实被吞，恢复后可再点（此时 filePath 已就绪）
     setTimeout(() => {
         if (btn.dataset.sharing === '1') settle();
-    }, 2500);
+    }, 6500);
 }
 
 // 通用分享函数（v8·filePath 确保版）：真机反复验证的可靠路径 = filePath（dataURL 直传不稳）。
@@ -2322,8 +2326,10 @@ async function shareReport(snapshot, _retried) {
 }
 
 // 确保分享图已落盘为 filePath：点击时强制新发起一次落盘（不依赖可能挂起的旧预热），
-// 1.5s 上限——正常情况 100-500ms 完成，点击即拿 filePath 首发；挂起超时立即回退 dataURL
-// （不拖 3s 让用户干等；新发起的落盘若稍后完成仍回填 shareImagePath，600ms 补发自动走 filePath）。
+// 5s 上限——真机 writeTempFile 首次完成耗时可达 2-5s（cute-face-grid 用户流程即
+// 「等导出完成再分享才一次成功」），1.5s 等不到就回退 dataURL 只会被吞（白点一次）。
+// 5s 内完成 → postNote(filePath) 一次成功；真挂起（>5s）才回退 dataURL 兜底，
+// 600ms 补发时 filePath 若已就绪自动优先。
 async function ensureShareImage(snapshot) {
     if (snapshot.shareImagePath) return snapshot.shareImagePath;
     if (!snapshot.shareImageDataUrl) return null;
@@ -2333,7 +2339,7 @@ async function ensureShareImage(snapshot) {
     const task = prewarmShareImage(snapshot);
     const fp = await Promise.race([
         Promise.resolve(task),
-        new Promise(function (r) { setTimeout(function () { r(null); }, 1500); })
+        new Promise(function (r) { setTimeout(function () { r(null); }, 5000); })
     ]);
     return fp || null;
 }
