@@ -2299,6 +2299,12 @@ async function shareReport(snapshot, _retried) {
         mediaInfo: { image_resources: [{ url: imageUrl }] },
         tags: noteTags.join(' ')
     };
+    // v12：点击后先留 ~500ms 初始化窗口再发 postNote——对齐 synonym-cards 行为
+    // （点击 → toast「生成成绩卡…」→ 异步画图 300-800ms → 才发 postNote，1 键成功）。
+    // 真机「首次点击被吞」模式符合容器桥在点击事件分发后需初始化窗口的解释：
+    // 点击瞬间同步发出的 postNote 落在初始化窗口内被吞，延迟后发出即正常。
+    // 此窗口由按钮「分享中…」反馈填充，用户感知为正常响应。
+    await new Promise(function (r) { setTimeout(r, 500); });
     // ② 挂起兜底：容器偶发吞掉 postNote（Promise 不 resolve 不 reject），600ms 后同 payload 补发一次
     const swallowTimer = setTimeout(function () {
         if (!_retried) {
