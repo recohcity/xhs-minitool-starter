@@ -2260,11 +2260,32 @@ function handleShare(btn, snapshot) {
 // 通用分享函数：使用已预渲染的分享图，直接同步调用小红书 postNote
 // 图片地址在点击前已就绪（预热 filePath 优先，否则 dataURL），点击瞬间同步发出 postNote，
 // 不等待任何异步写入，保持手势上下文完整（避免容器吞掉首次调用）
-// 若首次调用被容器吞掉（Promise 挂起不 resolve 不 reject）或 reject，
-// 600ms 内自动补一次（此时 filePath 大概率已就绪），把「点两次」变为「点一次 + 自动补」
+// 彻底防「点两次」三层保证：
+//  ① 点击手势内确保桥就绪 + filePath 就绪（等待预热 Promise / 手势内 writeTempFile），
+//     postNote 优先用 filePath（dataURL 直传在真机不可靠）
+//  ② 首次调用被吞（Promise 挂起不 resolve 不 reject）→ 600ms 自动补发一次
+//  ③ 首次调用 reject → 400ms 后补发一次（补发时 filePath 已就绪）
 async function shareReport(snapshot, _retried) {
+    if (!snapshot || !snapshot.shareImageDataUrl) return;
+    // ① 桥就绪：已注入立即通过；未注入轮询等待（点击手势内最多等 300ms）
+    if (!(window.xhs && window.xhs.miniTool)) {
+        const ok = await waitForBridge(300);
+        if (!ok) return;
+    }
     const miniTool = window.xhs && window.xhs.miniTool;
-    if (!snapshot || !miniTool || !snapshot.shareImageDataUrl) return;
+    if (!miniTool) return;
+    // ① filePath 就绪：等待已发出的预热 Promise → 仍无则手势内写入（同一手势上下文完成）
+    if (!snapshot.shareImagePath) {
+        if (snapshot._prewarm) {
+            await snapshot._prewarm;
+        }
+        if (!snapshot.shareImagePath && typeof miniTool.writeTempFile === 'function') {
+            try {
+                const temp = await miniTool.writeTempFile({ data: snapshot.shareImageDataUrl });
+                if (temp && temp.filePath) snapshot.shareImagePath = temp.filePath;
+            } catch (e) { /* 写入失败：回退 dataURL */ }
+        }
+    }
     const imageUrl = snapshot.shareImagePath || snapshot.shareImageDataUrl;
     // 人话化数值：反应速度用秒，不用毫秒
     const rtMs = snapshot.avgRt != null ? snapshot.avgRt : snapshot.speedValue;
@@ -2288,11 +2309,9 @@ async function shareReport(snapshot, _retried) {
         mediaInfo: { image_resources: [{ url: imageUrl }] },
         tags: noteTags.join(' ')
     };
-    // 挂起兜底：容器吞掉首次 postNote 时 Promise 既不 resolve 也不 reject，
+    // ② 挂起兜底：容器吞掉首次 postNote 时 Promise 既不 resolve 也不 reject，
     // 600ms 后视为被吞，自动补发一次（补发时 filePath 大概率已就绪，成功率高）
-    let swallowed = false;
     const swallowTimer = setTimeout(function () {
-        swallowed = true;
         if (!_retried) {
             shareReport(snapshot, true).catch(function () {});
         }
@@ -2303,7 +2322,7 @@ async function shareReport(snapshot, _retried) {
     } catch (e) {
         clearTimeout(swallowTimer);
         console.warn('share report failed:', e);
-        // 首次失败（常见于容器桥首次调用被吞）后自动补一次
+        // ③ 首次失败（常见于容器桥首次调用被吞）后自动补一次
         if (!_retried) {
             await new Promise(r => setTimeout(r, 400));
             return shareReport(snapshot, true);
@@ -2311,39 +2330,77 @@ async function shareReport(snapshot, _retried) {
     }
 }
 
+// 等待容器桥注入：轮询 window.xhs.miniTool 出现，注入后立即预热通道。
+// 容器桥注入时机随版本不同，可能晚于页面 JS 执行——首次点击分享前必须确保桥就绪，
+// 否则首次 postNote 落在桥初始化窗口内被吞（真机「点两次」的根因之一）
+function waitForBridge(timeout) {
+    const limit = timeout || 3000;
+    return new Promise(function (resolve) {
+        const t0 = Date.now();
+        (function poll() {
+            try {
+                const miniTool = window.xhs && window.xhs.miniTool;
+                if (miniTool) { warmupBridgeOnce(miniTool); return resolve(true); }
+            } catch (e) { /* 继续轮询 */ }
+            if (Date.now() - t0 >= limit) return resolve(false);
+            setTimeout(poll, 50);
+        })();
+    });
+}
+
+let bridgeWarmed = false;
+
 // 预热 JSBridge 通道：容器桥首次调用存在初始化延迟，首次 postNote 可能被吞。
-// 用无副作用的只读 API getLaunchOptions 在页面加载/开局时提前建立通道；
+// 用无副作用的只读 API getLaunchOptions 在桥注入后立刻建立通道（只做一次）；
 // 桥未注入或该方法不存在时静默跳过，不影响任何流程。
-function warmupBridge() {
+function warmupBridgeOnce(miniTool) {
+    if (bridgeWarmed || !miniTool) return;
     try {
-        const miniTool = window.xhs && window.xhs.miniTool;
-        if (!miniTool || typeof miniTool.getLaunchOptions !== 'function') return;
-        const p = miniTool.getLaunchOptions({});
-        if (p && typeof p.then === 'function') {
-            p.then(function () {}, function () {});
+        if (typeof miniTool.getLaunchOptions === 'function') {
+            const p = miniTool.getLaunchOptions({});
+            if (p && typeof p.then === 'function') {
+                p.then(function () {}, function () {});
+            }
         }
+        bridgeWarmed = true;
     } catch (e) { /* 预热失败不影响主流程 */ }
 }
 
+// 预热入口：页面加载/开局时后台等待桥注入并建立通道（不阻塞主流程）
+function warmupBridge() {
+    waitForBridge(3000);
+}
+
 // 预热分享图落盘：进入报告页即后台把分享图写入临时文件并缓存 filePath，
-// 点击分享时 postNote 无需等待异步写入，可同步发出（避免容器吞掉首次手势）
+// 点击分享时 postNote 无需等待异步写入，可同步发出（避免容器吞掉首次手势）。
+// 返回 Promise 且 single-flight：重复调用复用同一写入任务；
+// 点击手势内若尚未完成，await 它拿到 filePath 后再 postNote
 function prewarmShareImage(snapshot) {
+    if (!snapshot || !snapshot.shareImageDataUrl) return Promise.resolve(null);
+    if (snapshot.shareImagePath) return Promise.resolve(snapshot.shareImagePath);
+    if (snapshot._prewarm) return snapshot._prewarm;
     const miniTool = window.xhs && window.xhs.miniTool;
-    if (!snapshot || !snapshot.shareImageDataUrl || snapshot.shareImagePath) return;
-    if (!miniTool || typeof miniTool.writeTempFile !== 'function') return;
+    if (!miniTool || typeof miniTool.writeTempFile !== 'function') {
+        return Promise.resolve(null);
+    }
     let p = null;
     try {
         p = miniTool.writeTempFile({ data: snapshot.shareImageDataUrl });
     } catch (e) {
-        return; // 桥异常：点击分享时回退到「点击时写入 + 自动补一次」
+        return Promise.resolve(null); // 桥异常：点击时回退「手势内写入 + 自动补一次」
     }
-    if (!p || typeof p.then !== 'function') return; // 低版本桥可能同步返回
-    p.then(function (temp) {
-        if (temp && temp.filePath) snapshot.shareImagePath = temp.filePath;
-    })
-    .catch(function () {
-        // 预热失败不阻塞：点击分享时回退到「点击时写入 + 自动补一次」
+    if (!p || typeof p.then !== 'function') return Promise.resolve(null); // 低版本桥可能同步返回
+    const tracked = Promise.resolve(p).then(function (temp) {
+        if (temp && temp.filePath) {
+            snapshot.shareImagePath = temp.filePath;
+            return temp.filePath;
+        }
+        return null;
+    }).catch(function () {
+        return null; // 预热失败不阻塞：点击时回退「手势内写入 + 自动补一次」
     });
+    snapshot._prewarm = tracked;
+    return tracked;
 }
 
 // 分享战绩：渲染战绩卡片 → postNote（data:uri 直接作为图片资源）

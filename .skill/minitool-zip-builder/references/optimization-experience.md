@@ -351,8 +351,9 @@ btn-group.getBoundingClientRect().bottom <= screen.clientHeight  // 按钮不裁
 - 本地 mock 容器：注入 `getLaunchOptions` / `postNote` / `writeTempFile` mock——页面 load 即调 `getLaunchOptions` 1 次；预热 250ms 完成 → 点击 1 次恰好 1 次 postNote、`image_resources[0].url` 为预热 `filePath`（非 dataURL）；3 次快速连点只触发 1 次 postNote；首调 reject 自动补发。
 - **真机（用户验收）**：修复前点 2 次（第 1 次闪一下失败）；修复后游戏结束直接点分享，**1 次点击即弹出发布笔记页**。
 - **挂起补发增强（2026-10-08 复测回归）**：真机偶发「又要点 2 次」，根因是容器吞掉首次 postNote 时 Promise **挂起（不 resolve 不 reject）**，原有 catch 补发不触发。新增：postNote 发出后 600ms 未 settle 即视为被吞，自动补发一次（`shareReport(snapshot, true)`，此时 filePath 大概率已就绪）；成功跳转后页面 JS 上下文销毁，定时器不再触发，无重复弹窗风险。mock 验证：首次挂起 → 600ms 自动补发成功（补发 url 为 filePath），`autoRetryWorked: true`。
+- **彻底根治（2026-10-08 全链路加固）**：此前终案依赖「预热必早于点击完成」，但真机存在两类窗口让首次点击仍失败：① 容器桥注入晚于页面 JS（`warmupBridge` 在 load 时调用，当时 `miniTool` 尚未注入则跳过，之后无人再预热）；② 用户在结算动画/报告刚出现时立刻点击，`writeTempFile` 尚未完成 → 首次 postNote 只能走 dataURL → 被吞 → 600ms 自动补发**脱离用户手势上下文**，容器拒绝非手势触发的 postNote → 用户被迫点第 2 次（第 2 次手势内 filePath 已就绪 → 成功）。三层加固：**① 桥就绪轮询 `waitForBridge()`**（50ms 间隔轮询 `window.xhs.miniTool`，注入后立即 `getLaunchOptions` 预热，`warmupBridge` 改为轮询入口）；**② 点击手势内确保 filePath**：`shareReport` 开头若 `shareImagePath` 未就绪，先 `await` 已发出的预热 Promise（`snapshot._prewarm` single-flight），仍无则**在同一手势内 `await writeTempFile`** 再 `postNote`——把「确保 filePath + 发布」压缩进同一次点击的手势激活窗口；③ 保留 600ms 挂起补发 + reject 后 400ms 补发。**关键认知：容器可能拒绝脱离手势上下文的自动补发，补发只是兜底，真正根治是让首次点击手势内 filePath 必就绪**。mock 四场景验证全过：A writeTemp 慢 800ms+100ms 即点 → 手势内 await 完成，1 次调用用 filePath；B 桥晚注入 600ms → 轮询预热后 1 次成功；C 点击时桥未注入（200ms 点、250ms 注入）→ `waitForBridge(300)` 手势内等到桥，1 次成功；D 首次被吞挂起 → 600ms 自动补发 2 次调用均 filePath。
 
-**要点**：`postNote` 媒体字段传 `filePath` 优先于 `dataURL`；预热必须早于用户可点击时刻完成（提前到结果生成即预热）；首次桥调用前先用 `getLaunchOptions` 预热通道；容器吞调用可能是「静默挂起」而非 reject——必须加超时判吞自动补发，不能只依赖 catch。
+**要点**：`postNote` 媒体字段传 `filePath` 优先于 `dataURL`；预热必须早于用户可点击时刻完成（提前到结果生成即预热）；首次桥调用前先用 `getLaunchOptions` 预热通道；容器吞调用可能是「静默挂起」而非 reject——必须加超时判吞自动补发，不能只依赖 catch；**桥注入时机不可假设早于页面 JS，必须轮询等待；自动补发脱离手势上下文可能被容器拒绝，根治=首次点击手势内确保 filePath（等待/手势内写入）**。
 
 ### 7.2 postNote 的 tags 必须是 string——传数组会被 Native 忽略
 
