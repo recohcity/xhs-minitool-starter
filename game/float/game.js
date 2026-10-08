@@ -2275,11 +2275,9 @@ function shareReport(snapshot, _retried) {
             return ok ? shareReport(snapshot, _retried) : false;
         });
     }
-    // filePath 未就绪：同步发起落盘（fire-and-forget，为补发/下次点击备 filePath），
-    // 本次 postNote 用 dataURL 同步发出（体积已压小，无需 await 冒险拖出同步栈）
-    if (!snapshot.shareImagePath) {
-        prewarmShareImage(snapshot);
-    }
+    // 铁律：点击手势同步栈内绝不发起 writeTempFile——容器桥为串行队列，
+    // 同步发起落盘会占住桥通道，postNote 排队被挂起（真机「仅首次成功」根因）。
+    // filePath 就绪（后台预热已完成）→ 直接发 filePath；未就绪 → dataURL 直传（别人一次成功的路径）。
     const imageUrl = snapshot.shareImagePath || snapshot.shareImageDataUrl;
     // 人话化数值：反应速度用秒，不用毫秒
     const rtMs = snapshot.avgRt != null ? snapshot.avgRt : snapshot.speedValue;
@@ -2304,17 +2302,12 @@ function shareReport(snapshot, _retried) {
         tags: noteTags.join(' ')
     };
     // ② 挂起兜底：容器吞掉 postNote 时 Promise 既不 resolve 也不 reject。
-    //    600ms 后若 filePath 已就绪（首发 dataURL 被吞、落盘已完成）→ 用 filePath 补发；
-    //    仍未就绪 → 重新发起落盘，就绪后再补一次（dataURL 重发无意义，不再重复发同地址）。
+    //    600ms 后仅当 filePath 已就绪（后台预热完成）→ 用 filePath 补发一次；
+    //    仍未就绪 → 放弃本轮（dataURL 已发过，重发同地址无意义；且此刻再落盘同样占桥）。
     const swallowTimer = setTimeout(function () {
         if (_retried) return;
         if (snapshot.shareImagePath) {
             shareReport(snapshot, true).catch(function () {});
-        } else {
-            snapshot._prewarm = null; // 旧发起已挂起 600ms：清缓存强制重新落盘（旧调用若稍后完成仍会回填 filePath）
-            prewarmShareImage(snapshot).then(function (fp) {
-                if (fp && !_retried) shareReport(snapshot, true).catch(function () {});
-            });
         }
     }, 600);
     let p = null;
@@ -2390,8 +2383,9 @@ function warmupBridge() {
 
 // 预热分享图落盘：进入报告页即后台把分享图写入临时文件并缓存 filePath，
 // 点击分享时 postNote 无需等待异步写入，可同步发出（避免容器吞掉首次手势）。
-// 返回 Promise 且 single-flight：重复调用复用同一写入任务；
-// 点击手势内若尚未完成，await 它拿到 filePath 后再 postNote
+// 后台预热：报告页显示时把分享图落盘为 filePath，用户点击时零等待直接发。
+// 仅限非手势上下文调用（失败 500ms 自动重试一次）；点击手势同步栈内绝不调用本函数
+// ——容器桥为串行队列，同步发起 writeTempFile 会占住桥，postNote 排队被挂起。
 function prewarmShareImage(snapshot) {
     if (!snapshot || !snapshot.shareImageDataUrl) return Promise.resolve(null);
     if (snapshot.shareImagePath) return Promise.resolve(snapshot.shareImagePath);
@@ -2400,7 +2394,7 @@ function prewarmShareImage(snapshot) {
         return Promise.resolve(null);
     }
     // 容器偶发「静默挂起」writeTempFile（不 resolve 不 reject）：1.2s 判失败并清缓存，
-    // 允许后续（点击时）重新发起，绝不让挂起的 _prewarm 永久占用导致 filePath 永不就绪。
+    // 500ms 后自动重试一次（后台预热尽量在用户点击前完成落盘）；点击手势内绝不依赖此调用。
     const attempt = function () {
         let p = null;
         try {
@@ -2421,14 +2415,18 @@ function prewarmShareImage(snapshot) {
         return Promise.race([
             done,
             new Promise(function (res) { setTimeout(function () { res(null); }, 1200); })
-        ]).then(function (v) {
-            if (!v) snapshot._prewarm = null; // 失败/超时：清缓存允许重试（挂起的原始 Promise 若稍后完成仍会回填 shareImagePath）
-            return v;
-        });
+        ]);
     };
     if (snapshot._prewarm) return snapshot._prewarm;
-    snapshot._prewarm = attempt();
-    return snapshot._prewarm;
+    const retryChain = attempt().then(function (v) {
+        if (v) return v;
+        snapshot._prewarm = null; // 失败/超时：清缓存，500ms 后自动重试一次（挂起的原始 Promise 若稍后完成仍会回填 shareImagePath）
+        return new Promise(function (res) {
+            setTimeout(function () { res(attempt()); }, 500);
+        });
+    });
+    snapshot._prewarm = retryChain;
+    return retryChain;
 }
 
 // 分享战绩：渲染战绩卡片 → postNote（data:uri 直接作为图片资源）
