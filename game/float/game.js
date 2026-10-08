@@ -2213,11 +2213,25 @@ if (reportRetestBtn) {
         initGame();
     });
 }
-if (reportShareBtn) {
-    reportShareBtn.addEventListener('click', () => {
-        // 直接用进入页面时缓存的报告数据（已预渲染分享图），点击瞬间即可触发 postNote
-        handleShare(reportShareBtn, cachedReportShare);
+// v13：分享按钮统一绑定。真机「首次点击无反应（连分享中…都不显示）、第2次点击成功」
+// = 容器抑制首次触摸合成的 click 事件（CSS :active 闪动证明触摸已到页面，但 click 未派发
+// 到 handler）。pointerdown 在触摸按下瞬间原生派发，不受 click 合成抑制影响。
+// 双绑定 + 时间窗去重：pointerdown 触发记录时间；同一触摸随后的 click（约 300ms 内）跳过，
+// 防止一次物理点击触发两次 postNote 双弹发布页。
+function bindShareButton(btn, getSnapshot) {
+    let lastShareAt = 0;
+    btn.addEventListener('pointerdown', () => {
+        lastShareAt = Date.now();
+        handleShare(btn, getSnapshot());
     });
+    btn.addEventListener('click', () => {
+        if (Date.now() - lastShareAt < 800) return;
+        handleShare(btn, getSnapshot());
+    });
+}
+
+if (reportShareBtn) {
+    bindShareButton(reportShareBtn, () => cachedReportShare);
 }
 
 // 首页「我的反应力报告」按钮
@@ -2299,12 +2313,8 @@ async function shareReport(snapshot, _retried) {
         mediaInfo: { image_resources: [{ url: imageUrl }] },
         tags: noteTags.join(' ')
     };
-    // v12：点击后先留 ~500ms 初始化窗口再发 postNote——对齐 synonym-cards 行为
-    // （点击 → toast「生成成绩卡…」→ 异步画图 300-800ms → 才发 postNote，1 键成功）。
-    // 真机「首次点击被吞」模式符合容器桥在点击事件分发后需初始化窗口的解释：
-    // 点击瞬间同步发出的 postNote 落在初始化窗口内被吞，延迟后发出即正常。
-    // 此窗口由按钮「分享中…」反馈填充，用户感知为正常响应。
-    await new Promise(function (r) { setTimeout(r, 500); });
+    // v13：移除 v12 的 500ms 延迟（真机第 2 次点击在 v11 无延迟时同样成功，证明延迟无贡献；
+    // 「首次被吞」真因 = 容器抑制首次触摸合成的 click，由 pointerdown 绑定解决）。
     // ② 挂起兜底：容器偶发吞掉 postNote（Promise 不 resolve 不 reject），600ms 后同 payload 补发一次
     const swallowTimer = setTimeout(function () {
         if (!_retried) {
@@ -2437,9 +2447,8 @@ function prewarmShareImage(snapshot) {
 
 // 分享战绩：渲染战绩卡片 → postNote（data:uri 直接作为图片资源）
 if (btnShareResult) {
-    btnShareResult.addEventListener('click', () => {
-        handleShare(btnShareResult, shareSnapshot);
-    });
+    // v13：pointerdown 触发（同 reportShareBtn，绕开容器对首次触摸 click 的合成抑制）+ click 时间窗兜底
+    bindShareButton(btnShareResult, () => shareSnapshot);
 }
 
 // 非小红书容器环境：结算页和报告页不显示分享按钮
