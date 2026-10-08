@@ -1544,11 +1544,9 @@ function endGame() {
         console.warn('pre-render share card failed:', e);
     }
 
-    // 立即预热分享图落盘：结算动画 + 用户阅读报告期间完成 writeTempFile，
-    // 点击分享时 filePath 必已就绪（dataURL 直传在真机不可靠，filePath 才稳定）
-    if (shareSnapshot.shareImageDataUrl) {
-        prewarmShareImage(shareSnapshot);
-    }
+    // v11 起不再自动预热落盘：后台 writeTempFile 在真机常静默挂起（v5 观察），
+    // 挂起调用可能占住容器桥串行队列，点击时 postNote 被排队饿死（「点两次」主因之一）。
+    // 分享路径完全 synonym-cards 化：dataURL 直传，零 writeTempFile、零预热、零 filePath。
 
     // 保存最近一次结构化报告（不含分享图 base64；含人话解读与统计摘要）
     try {
@@ -1935,8 +1933,8 @@ function showReport() {
 
     // 预渲染分享图并缓存到内存（不落盘），点击分享时零准备
     cachedReportShare = prepareSharePayload(data);
-    // 预热落盘：把分享图先写入临时文件，点击分享时 postNote 可同步发出（解决首次点击被吞）
-    prewarmShareImage(cachedReportShare);
+    // v11：不再预热落盘——后台 writeTempFile 真机静默挂起会占桥饿死点击时的 postNote。
+    // 分享路径 synonym-cards 化：点击 dataURL 直传，零 writeTempFile。
 
     // ── 结论区：画像 + 评语 + 依据（体检报告式，替代旧等级横幅） ──
     if (reportDate) reportDate.innerText = data.date || '最近测试';
@@ -2261,11 +2259,13 @@ function handleShare(btn, snapshot) {
     }, 6500);
 }
 
-// 通用分享函数（v8·filePath 确保版）：真机反复验证的可靠路径 = filePath（dataURL 直传不稳）。
-// 水影笺（用户实测一次成功）用 async/await postNote 证明容器接受异步调用——
-// 「必须同步栈内发出」的理论作废。v8：点击后先确保 filePath（等待落盘，3s 上限），
-// 再 await postNote(filePath)；落盘失败才回退 dataURL。payload 不传 tags 字段
-// （容器对 tags 校验严格可能静默吞掉整个 postNote）；话题仅放 content（"#名称[话题]#" 蓝字序列化）。
+// 通用分享函数（v11·synonym-cards 同款）：自家 synonym-cards（用户实测 1 键弹出、
+// 多图+话题标签）分享路径 = Canvas dataURL 直传 postNote，**全程不碰 writeTempFile、
+// 不落盘、不等待 filePath**；三个参考仓库（水影笺/cute-face-grid/synonym-cards）
+// 一次成功的共同点 = 分享时零 writeTempFile（v6 占桥理论重新成立：点击后任何
+// writeTempFile 都会饿死同链路 postNote，v8-v10 的「点击确保 filePath」正是复辟了
+// 这条死路）。v11：点击直接用预渲染 PNG dataURL 直传 postNote，恢复 tags 字段
+// （synonym-cards 传 tags 1 键成功，v7 去 tags 为误判），600ms 挂起补发保留。
 async function shareReport(snapshot, _retried) {
     if (!snapshot || !snapshot.shareImageDataUrl) return false;
     const miniTool = window.xhs && window.xhs.miniTool;
@@ -2274,19 +2274,15 @@ async function shareReport(snapshot, _retried) {
         const ok = await waitForBridge(2500);
         return ok ? shareReport(snapshot, _retried) : false;
     }
-    // 确保图片地址：filePath 就绪（后台预热完成）直接用；未就绪等落盘（3s 上限），
-    // 落盘失败/超时才回退 dataURL（水影笺同路径，能成但不如 filePath 稳）
-    let imageUrl = snapshot.shareImagePath;
-    if (!imageUrl) {
-        imageUrl = await ensureShareImage(snapshot);
-        if (!imageUrl) imageUrl = snapshot.shareImageDataUrl;
-    }
+    // v11 铁律：点击后绝不发起 writeTempFile（占桥饿死 postNote）。直接 dataURL 直传
+    // （分享图已在报告页渲染时预生成，PNG ~256KB，synonym-cards 同款格式与调用方式）
+    const imageUrl = snapshot.shareImageDataUrl;
     // 人话化数值：反应速度用秒，不用毫秒
     const rtMs = snapshot.avgRt != null ? snapshot.avgRt : snapshot.speedValue;
     const sec = (rtMs != null && !isNaN(rtMs)) ? (Number(rtMs) / 1000).toFixed(2) : '—';
     const acc = snapshot.accuracy != null ? snapshot.accuracy : snapshot.accuracyValue;
-    // 话题标签（最多 10 个）：仅放 content，用 "#名称[话题]#" 序列化格式还原真实话题（蓝字）。
-    // 注意：不传 postNote 的 tags 字段——容器对 tags 校验严格，10 话题空格分隔可能触发静默拒绝。
+    // 话题标签（最多 10 个）：content 用 "#名称[话题]#" 序列化（蓝字），tags 字段传不带 # 的话题名
+    // （空格分隔）——synonym-cards 同款双写，1 键成功已验证；v7 去 tags 为误判，v11 恢复。
     const noteTags = ['反应力测试', '反应力训练', '反应力', '专注力', '脑力挑战', '手速挑战', '小游戏', '趣味测试', '挑战自己', '来测一测'];
     const tagMarkup = noteTags.map(t => '#' + t + '[话题]#').join(' ');
     const payload = {
@@ -2300,23 +2296,23 @@ async function shareReport(snapshot, _retried) {
             '点击下方小红书小工具：飘，测一下你的反应力\n' +
             tagMarkup,
         pageType: 'photo_publish',
-        mediaInfo: { image_resources: [{ url: imageUrl }] }
+        mediaInfo: { image_resources: [{ url: imageUrl }] },
+        tags: noteTags.join(' ')
     };
-    // ② 挂起兜底：容器偶发吞掉 postNote（Promise 不 resolve 不 reject），600ms 后补发一次
-    //    （补发时 filePath 大概率已就绪——首次 ensureShareImage 已落盘，自动走 filePath）
+    // ② 挂起兜底：容器偶发吞掉 postNote（Promise 不 resolve 不 reject），600ms 后同 payload 补发一次
     const swallowTimer = setTimeout(function () {
         if (!_retried) {
             shareReport(snapshot, true).catch(function () {});
         }
     }, 600);
     try {
-        await miniTool.postNote(payload); // 水影笺同款 async/await（容器接受异步调用）
+        await miniTool.postNote(payload); // synonym-cards 同款（dataURL 直传，异步调用被容器接受）
         clearTimeout(swallowTimer);
         return true;
     } catch (e) {
         clearTimeout(swallowTimer);
         console.warn('share report failed:', e);
-        // ③ 首次失败后 400ms 自动补一次（filePath 已落盘则自动优先）
+        // ③ 首次失败后 400ms 自动补一次（同 payload；此路径不落盘，纯重发）
         if (!_retried) {
             await new Promise(r => setTimeout(r, 400));
             return shareReport(snapshot, true);
