@@ -1539,7 +1539,7 @@ function endGame() {
     // 预渲染分享图（仅内存，不写入 localStorage，避免撑爆配额）
     try {
         const preCanvas = renderShareCard(shareSnapshot);
-        shareSnapshot.shareImageDataUrl = preCanvas.toDataURL('image/jpeg', 0.85);
+        shareSnapshot.shareImageDataUrl = exportShareCard(preCanvas);
     } catch (e) {
         console.warn('pre-render share card failed:', e);
     }
@@ -1633,7 +1633,7 @@ function prepareSharePayload(data) {
     try {
         if (!data.shareImageDataUrl) {
             const c = renderShareCard(data);
-            data.shareImageDataUrl = c.toDataURL('image/jpeg', 0.85);
+            data.shareImageDataUrl = exportShareCard(c);
         }
     } catch (e) {
         console.warn('prepare share payload failed:', e);
@@ -2257,34 +2257,28 @@ function handleShare(btn, snapshot) {
     }, 2500);
 }
 
-// 通用分享函数：使用已预渲染的分享图，直接同步调用小红书 postNote
-// 图片地址在点击前已就绪（预热 filePath 优先，否则 dataURL），点击瞬间同步发出 postNote，
-// 不等待任何异步写入，保持手势上下文完整（避免容器吞掉首次调用）
-// 彻底防「点两次」三层保证：
-//  ① 点击手势内确保桥就绪 + filePath 就绪（等待预热 Promise / 手势内 writeTempFile），
-//     postNote 优先用 filePath（dataURL 直传在真机不可靠）
-//  ② 首次调用被吞（Promise 挂起不 resolve 不 reject）→ 600ms 自动补发一次
-//  ③ 首次调用 reject → 400ms 后补发一次（补发时 filePath 已就绪）
-async function shareReport(snapshot, _retried) {
-    if (!snapshot || !snapshot.shareImageDataUrl) return;
-    // ① 桥就绪：已注入立即通过；未注入轮询等待（点击手势内最多等 300ms）
-    if (!(window.xhs && window.xhs.miniTool)) {
-        const ok = await waitForBridge(300);
-        if (!ok) return;
-    }
+// 通用分享函数（v4·同步优先版）：postNote 必须在点击手势的【同步栈】内发出，
+// postNote 之前绝无 await——真机「点两次」的根治路径：
+// ① 首次点击同步发出：filePath 已就绪用 filePath；未就绪同步发起 writeTempFile（不 await）并用
+//    小体积 dataURL 兜底同步发出（exportShareCard 已压至 ~30KB，真机经验首次过桥稳定）
+// ② 容器吞调用（Promise 挂起）→ 600ms 自动补发（此时同步发起的 writeTempFile 大概率已完成，
+//    补发用 filePath）；成功跳转后页面销毁，定时器不再触发
+// ③ 首次 reject → 400ms 后补发一次（filePath 大概率已就绪）
+function shareReport(snapshot, _retried) {
+    if (!snapshot || !snapshot.shareImageDataUrl) return Promise.resolve(false);
     const miniTool = window.xhs && window.xhs.miniTool;
-    if (!miniTool) return;
-    // ① filePath 就绪：等待已发出的预热 Promise → 仍无则手势内写入（同一手势上下文完成）
+    if (!miniTool) {
+        // 桥未注入：等待注入后自动重发（用户感知为一次点击；warmup 轮询也在后台预热）。
+        // 注：此分支的 postNote 发生在异步回调（非同步栈），容器接受异步 postNote
+        // （600ms 挂起补发即异步且真机验证有效），关键仍是 filePath/dataURL 就绪。
+        return waitForBridge(2500).then(function (ok) {
+            return ok ? shareReport(snapshot, _retried) : false;
+        });
+    }
+    // filePath 未就绪：同步发起落盘（fire-and-forget，为补发/下次点击备 filePath），
+    // 本次 postNote 用 dataURL 同步发出（体积已压小，无需 await 冒险拖出同步栈）
     if (!snapshot.shareImagePath) {
-        if (snapshot._prewarm) {
-            await snapshot._prewarm;
-        }
-        if (!snapshot.shareImagePath && typeof miniTool.writeTempFile === 'function') {
-            try {
-                const temp = await miniTool.writeTempFile({ data: snapshot.shareImageDataUrl });
-                if (temp && temp.filePath) snapshot.shareImagePath = temp.filePath;
-            } catch (e) { /* 写入失败：回退 dataURL */ }
-        }
+        prewarmShareImage(snapshot);
     }
     const imageUrl = snapshot.shareImagePath || snapshot.shareImageDataUrl;
     // 人话化数值：反应速度用秒，不用毫秒
@@ -2309,25 +2303,40 @@ async function shareReport(snapshot, _retried) {
         mediaInfo: { image_resources: [{ url: imageUrl }] },
         tags: noteTags.join(' ')
     };
-    // ② 挂起兜底：容器吞掉首次 postNote 时 Promise 既不 resolve 也不 reject，
-    // 600ms 后视为被吞，自动补发一次（补发时 filePath 大概率已就绪，成功率高）
+    // ② 挂起兜底：容器吞掉 postNote 时 Promise 既不 resolve 也不 reject，600ms 后视为被吞自动补发
     const swallowTimer = setTimeout(function () {
         if (!_retried) {
             shareReport(snapshot, true).catch(function () {});
         }
     }, 600);
+    let p = null;
     try {
-        await miniTool.postNote(payload);
-        clearTimeout(swallowTimer);
+        p = miniTool.postNote(payload); // 同步栈内发出，绝不在其前 await
     } catch (e) {
+        clearTimeout(swallowTimer);
+        console.warn('share postNote sync throw:', e);
+        // ③ 同步抛出（罕见）：400ms 后补发一次
+        if (!_retried) {
+            return new Promise(r => setTimeout(r, 400)).then(() => shareReport(snapshot, true));
+        }
+        return Promise.resolve(false);
+    }
+    if (!p || typeof p.then !== 'function') { // 低版本桥同步返回：视为成功
+        clearTimeout(swallowTimer);
+        return Promise.resolve(true);
+    }
+    return p.then(function () {
+        clearTimeout(swallowTimer);
+        return true;
+    }, function (e) {
         clearTimeout(swallowTimer);
         console.warn('share report failed:', e);
         // ③ 首次失败（常见于容器桥首次调用被吞）后自动补一次
         if (!_retried) {
-            await new Promise(r => setTimeout(r, 400));
-            return shareReport(snapshot, true);
+            return new Promise(r => setTimeout(r, 400)).then(() => shareReport(snapshot, true));
         }
-    }
+        return false;
+    });
 }
 
 // 等待容器桥注入：轮询 window.xhs.miniTool 出现，注入后立即预热通道。
@@ -2501,6 +2510,24 @@ function wrapShareText(ctx, text, maxWidth, maxLines) {
         lines[lines.length - 1] = last + '…';
     }
     return lines;
+}
+
+// 分享图缩小导出：720 宽渲染 → 540 宽导出 + JPEG 0.82，把过桥体积压到 ~30KB。
+// 真机经验：postNote 的 mediaInfo 传 dataURL 时体积越小首次过桥越稳（810KB→57KB 后
+// 点击即弹页；再压一档让 dataURL 兜底路径也足够稳，filePath 未就绪时不必冒险 await）
+function exportShareCard(canvas) {
+    try {
+        const w = 540;
+        const h = Math.round(canvas.height * (w / canvas.width));
+        const small = document.createElement('canvas');
+        small.width = w;
+        small.height = h;
+        const sctx = small.getContext('2d');
+        sctx.drawImage(canvas, 0, 0, w, h);
+        return small.toDataURL('image/jpeg', 0.82);
+    } catch (e) {
+        return canvas.toDataURL('image/jpeg', 0.85); // 缩小失败回退原尺寸导出
+    }
 }
 
 function renderShareCard(snapshot) {
