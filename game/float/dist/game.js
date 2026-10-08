@@ -2257,38 +2257,36 @@ function handleShare(btn, snapshot) {
     }, 2500);
 }
 
-// 通用分享函数（v4·同步优先版）：postNote 必须在点击手势的【同步栈】内发出，
-// postNote 之前绝无 await——真机「点两次」的根治路径：
-// ① 首次点击同步发出：filePath 已就绪用 filePath；未就绪同步发起 writeTempFile（不 await）并用
-//    小体积 dataURL 兜底同步发出（exportShareCard 已压至 ~30KB，真机经验首次过桥稳定）
-// ② 容器吞调用（Promise 挂起）→ 600ms 自动补发（此时同步发起的 writeTempFile 大概率已完成，
-//    补发用 filePath）；成功跳转后页面销毁，定时器不再触发
-// ③ 首次 reject → 400ms 后补发一次（filePath 大概率已就绪）
+// 通用分享函数（v7·水影笺对齐版）：实测一次成功的小工具（水影笺）实现极简——
+// dataURL 直传 + await postNote + 不传 tags 字段。本版对齐：去掉 payload.tags
+// （容器对 tags 格式校验严格，10 个空格分隔话题可能触发静默拒绝，真机「仅首次成功」最大嫌疑），
+// 话题只放 content（"#名称[话题]#" 序列化，发布页蓝字已真机验证）。
+// filePath 就绪（后台预热完成）仍优先用（真机验证过稳定），未就绪 dataURL 直传。
 function shareReport(snapshot, _retried) {
     if (!snapshot || !snapshot.shareImageDataUrl) return Promise.resolve(false);
     const miniTool = window.xhs && window.xhs.miniTool;
     if (!miniTool) {
         // 桥未注入：等待注入后自动重发（用户感知为一次点击；warmup 轮询也在后台预热）。
         // 注：此分支的 postNote 发生在异步回调（非同步栈），容器接受异步 postNote
-        // （600ms 挂起补发即异步且真机验证有效），关键仍是 filePath/dataURL 就绪。
+        // （600ms 挂起补发即异步且真机验证有效），关键仍是图片地址就绪。
         return waitForBridge(2500).then(function (ok) {
             return ok ? shareReport(snapshot, _retried) : false;
         });
     }
     // 铁律：点击手势同步栈内绝不发起 writeTempFile——容器桥为串行队列，
-    // 同步发起落盘会占住桥通道，postNote 排队被挂起（真机「仅首次成功」根因）。
-    // filePath 就绪（后台预热已完成）→ 直接发 filePath；未就绪 → dataURL 直传（别人一次成功的路径）。
+    // 同步发起落盘会占住桥通道，postNote 排队被挂起（真机「仅首次成功」根因之一）。
+    // filePath 就绪（后台预热已完成）→ 直接发 filePath；未就绪 → dataURL 直传（水影笺同路径）。
     const imageUrl = snapshot.shareImagePath || snapshot.shareImageDataUrl;
     // 人话化数值：反应速度用秒，不用毫秒
     const rtMs = snapshot.avgRt != null ? snapshot.avgRt : snapshot.speedValue;
     const sec = (rtMs != null && !isNaN(rtMs)) ? (Number(rtMs) / 1000).toFixed(2) : '—';
     const acc = snapshot.accuracy != null ? snapshot.accuracy : snapshot.accuracyValue;
-    // 话题标签（最多 10 个）：正文用 "#名称[话题]#" 序列化格式还原真实话题（蓝字），
-    // tags 字段传不带 # 的话题名（空格分隔），走平台话题联想选中
+    // 话题标签（最多 10 个）：仅放 content，用 "#名称[话题]#" 序列化格式还原真实话题（蓝字）。
+    // 注意：不传 postNote 的 tags 字段——水影笺不传即可用，传 10 话题空格分隔可能被容器校验拒绝。
     const noteTags = ['反应力测试', '反应力训练', '反应力', '专注力', '脑力挑战', '手速挑战', '小游戏', '趣味测试', '挑战自己', '来测一测'];
     const tagMarkup = noteTags.map(t => '#' + t + '[话题]#').join(' ');
     const payload = {
-        title: '飘 · 60秒测测你的反应力',
+        title: '飘 · 60秒测测你的反应力'.slice(0, 20),
         content:
             '60秒反应力测评完成！\n' +
             ((snapshot.diagName || snapshot.rankLabel || '') + (snapshot.diagSub ? ' · ' + snapshot.diagSub : '')) + '\n' +
@@ -2298,15 +2296,12 @@ function shareReport(snapshot, _retried) {
             '点击下方小红书小工具：飘，测一下你的反应力\n' +
             tagMarkup,
         pageType: 'photo_publish',
-        mediaInfo: { image_resources: [{ url: imageUrl }] },
-        tags: noteTags.join(' ')
+        mediaInfo: { image_resources: [{ url: imageUrl }] }
     };
-    // ② 挂起兜底：容器吞掉 postNote 时 Promise 既不 resolve 也不 reject。
-    //    600ms 后仅当 filePath 已就绪（后台预热完成）→ 用 filePath 补发一次；
-    //    仍未就绪 → 放弃本轮（dataURL 已发过，重发同地址无意义；且此刻再落盘同样占桥）。
+    // ② 挂起兜底：容器偶发吞掉 postNote（Promise 不 resolve 不 reject），600ms 后同 payload 补发一次
+    //    （filePath 若已就绪自动优先；成功跳转后页面销毁，定时器不再触发）
     const swallowTimer = setTimeout(function () {
-        if (_retried) return;
-        if (snapshot.shareImagePath) {
+        if (!_retried) {
             shareReport(snapshot, true).catch(function () {});
         }
     }, 600);
