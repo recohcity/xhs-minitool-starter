@@ -72,13 +72,21 @@ class SoundSynth {
                 subOsc.stop(now + index * 0.06 + 0.16);
             });
         } else if (type === 'tick') {
-            // Sharp soft tick
+            // 国际标准倒计时读秒：干净短促的"哔"（1kHz 正弦，设备/相机倒计时音色）
             osc.type = 'sine';
-            osc.frequency.setValueAtTime(987.77, now); // B5
-            gainNode.gain.setValueAtTime(0.06, now);
-            gainNode.gain.linearRampToValueAtTime(0, now + 0.03);
+            osc.frequency.setValueAtTime(1000.00, now);
+            gainNode.gain.setValueAtTime(0.18, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
             osc.start(now);
-            osc.stop(now + 0.03);
+            osc.stop(now + 0.12);
+        } else if (type === 'final') {
+            // 最后 1 秒：标准长音"哔——"收尾（经典倒计时 T-0 长音）
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1000.00, now);
+            gainNode.gain.setValueAtTime(0.20, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.60);
+            osc.start(now);
+            osc.stop(now + 0.60);
         } else if (type === 'gameover') {
             // Triumphant chord sweep
             const notes = [293.66, 369.99, 440.00, 587.33]; // D4, F#4, A4, D5
@@ -246,6 +254,78 @@ const LEAF_SPAWN_OFFSETS = [
     { x: 68, y: 60 }
 ];
 
+// ── 测评参数：受控试次生成（保证指标可算、结果可比） ──────────────────────
+const TEST_CONFIG = {
+    warmupCount: 3,          // 前 N 题热身：只练不计分，不入统计
+    responseWindowMs: 1500,  // 单题响应窗口：对齐 Ebb & Flow 紧凑节奏（原版~1s，手机滑动留裕量取1.5s）；超时自动跳题并计为异常
+    minRTAnticipation: 150,  // RT 低于此值视为预期反应/误触（视觉反应时下限）
+    maxValidRT: 3000,        // 统计清洗：超过此值的正确 RT 剔除
+    phaseTiming: [10, 40],   // 适应段结束秒 / 核心段结束秒（之后进入压力段）
+    switchRatio: { adapt: 0.15, core: 0.30, pressure: 0.45 },   // 切换试次目标概率
+    conflictRatio: { adapt: 0.15, core: 0.50, pressure: 0.70 }  // 冲突试次目标概率
+};
+
+// 受控试次生成：阶段渐进 + 切换受控（连续同色≤3）+ 冲突配比 + 四向均衡
+function pickNextTrial(prev) {
+    const elapsed = (performance.now() - gameState.sessionStartTime) / 1000;
+    let phase = 'core';
+    if (elapsed < TEST_CONFIG.phaseTiming[0]) phase = 'adapt';
+    else if (elapsed < TEST_CONFIG.phaseTiming[1]) phase = 'core';
+    else phase = 'pressure';
+    gameState.phase = phase;
+
+    const isWarmup = gameState.trialIndex < TEST_CONFIG.warmupCount;
+
+    // ── 1. 任务类型（颜色）：切换概率按阶段，连续同色强制切换 ──
+    let color, isSwitch = false;
+    if (!prev) {
+        color = Math.random() < 0.5 ? 'green' : 'orange';
+    } else {
+        const forceSwitch = (gameState.sameColorStreak || 0) >= 3;
+        const wantSwitch = Math.random() < TEST_CONFIG.switchRatio[phase];
+        if (forceSwitch || wantSwitch) {
+            color = (prev.color === 'green') ? 'orange' : 'green';
+            isSwitch = true;
+        } else {
+            color = prev.color;
+        }
+    }
+    if (prev && prev.color === color) {
+        gameState.sameColorStreak = (gameState.sameColorStreak || 0) + 1;
+    } else {
+        gameState.sameColorStreak = 0;
+    }
+
+    // ── 2. 指向：从使用最少的方向中选（四向均衡，避免方向偏好） ──
+    const pointing = pickBalancedDirection(gameState.directionUsage);
+    gameState.directionUsage[pointing]++;
+
+    // ── 3. 移动：按阶段冲突概率生成（冲突 = 指向≠移动） ──
+    let moving;
+    if (Math.random() < TEST_CONFIG.conflictRatio[phase]) {
+        const others = ['up', 'down', 'left', 'right'].filter(function (d) { return d !== pointing; });
+        moving = others[Math.floor(Math.random() * others.length)];
+    } else {
+        moving = pointing;
+    }
+
+    return {
+        color: color, pointing: pointing, moving: moving,
+        isSwitch: isSwitch, isConflict: (moving !== pointing),
+        phase: phase, isWarmup: isWarmup
+    };
+}
+
+function pickBalancedDirection(usage) {
+    const keys = Object.keys(usage);
+    let min = Infinity, best = [];
+    keys.forEach(function (k) {
+        if (usage[k] < min) { min = usage[k]; best = [k]; }
+        else if (usage[k] === min) { best.push(k); }
+    });
+    return best[Math.floor(Math.random() * best.length)];
+}
+
 // ── Game State variables ───────────────────────────────────────────────────
 let gameState = {
     activeScreen: 'welcomeScreen',
@@ -256,17 +336,30 @@ let gameState = {
     streak: 0,
     peakMultiplier: 1,
     timeLeft: 60,
+    lastBeepSec: 6,
     timerInterval: null,
     gameActive: false,
     
     // Performance metrics
-    records: [], // items: { rule: 'green'|'orange', congruent: bool, isSwitch: bool, correct: bool, rt: ms }
+    records: [], // items: { rule:'green'|'orange', congruent:bool, isSwitch:bool, correct:bool, rt:ms|null, phase:'adapt'|'core'|'pressure', warmup:bool, anomalous:'anticipation'|'timeout'|null }
     
     // Trial parameters
     currentColor: 'green', // 'green' (pointing) or 'orange' (moving)
     currentPointing: 'up',
     currentMoving: 'up',
     trialStartTime: 0,
+    
+    // 测评受控生成状态
+    trialIndex: 0,          // 已生成试次序号（含 warm-up）
+    phase: 'adapt',         // 当前阶段 adapt/core/pressure
+    sameColorStreak: 0,     // 连续同色计数（强制切换用）
+    directionUsage: { up: 0, down: 0, left: 0, right: 0 }, // 指向方向均衡
+    currentTrialMeta: null, // 当前试次生成元数据 {color,pointing,moving,isSwitch,isConflict,phase,isWarmup}
+    lastTrialMeta: null,    // 上一试次生成元数据
+    responseTimer: null,    // 单题超时窗口 timer
+    timeoutCount: 0,        // 超时试次数
+    sessionStartTime: 0,    // 本局开始时间（暂停时顺延）
+    pausedAt: null,         // 页面隐藏暂停时刻
     
     // Animated drifting leaves
     leaves: [],
@@ -323,45 +416,36 @@ const reportHint = document.getElementById('reportHint');
 
 // 报告详情页元素
 const reportDate = document.getElementById('reportDate');
-const reportRankHero = document.getElementById('reportRankHero');
-const reportRankLetter = document.getElementById('reportRankLetter');
-const reportRankTitle = document.getElementById('reportRankTitle');
-const reportRankTag = document.getElementById('reportRankTag');
-const reportInterpretText = document.getElementById('reportInterpretText');
-const reportSpeedVal = document.getElementById('reportSpeedVal');
-const reportSpeedEval = document.getElementById('reportSpeedEval');
-const reportAccuracyVal = document.getElementById('reportAccuracyVal');
-const reportAccuracyEval = document.getElementById('reportAccuracyEval');
-const reportSwitchVal = document.getElementById('reportSwitchVal');
-const reportSwitchEval = document.getElementById('reportSwitchEval');
-const reportFocusVal = document.getElementById('reportFocusVal');
-const reportFocusEval = document.getElementById('reportFocusEval');
-const reportSubScore = document.getElementById('reportSubScore');
-const reportSubPeak = document.getElementById('reportSubPeak');
-const reportSubFastest = document.getElementById('reportSubFastest');
+const reportRingOuter = document.getElementById('reportRingOuter');
+const reportRingMid = document.getElementById('reportRingMid');
+const reportRingInner = document.getElementById('reportRingInner');
+const reportRingA = document.getElementById('reportRingA');
+const reportRingB = document.getElementById('reportRingB');
+const reportIndexValue = document.getElementById('reportIndexValue');
+const reportValidity = document.getElementById('reportValidity');
 const reportTipContent = document.getElementById('reportTipContent');
+const reportMiniTrend = document.getElementById('reportMiniTrend');
+const reportProcessLabel = document.getElementById('reportProcessLabel');
+const reportFocusCurve = document.getElementById('reportFocusCurve');
+const reportDiagnosis = document.getElementById('reportDiagnosis');
 const reportBackBtn = document.getElementById('reportBackBtn');
 const reportRetestBtn = document.getElementById('reportRetestBtn');
 const reportShareBtn = document.getElementById('reportShareBtn');
 
-// Game Over — 反应力报告面板元素
+// Game Over — 测评报告面板元素（人话报告）
 const rankHero = document.getElementById('rankHero');
-const rankLetter = document.getElementById('rankLetter');
 const rankTitle = document.getElementById('rankTitle');
 const rankTag = document.getElementById('rankTag');
-const interpretText = document.getElementById('interpretText');
-const abilitySpeedVal = document.getElementById('abilitySpeedVal');
-const abilitySpeedEval = document.getElementById('abilitySpeedEval');
-const abilityAccuracyVal = document.getElementById('abilityAccuracyVal');
-const abilityAccuracyEval = document.getElementById('abilityAccuracyEval');
-const abilitySwitchVal = document.getElementById('abilitySwitchVal');
-const abilitySwitchEval = document.getElementById('abilitySwitchEval');
-const abilityFocusVal = document.getElementById('abilityFocusVal');
-const abilityFocusEval = document.getElementById('abilityFocusEval');
-const subScoreVal = document.getElementById('subScoreVal');
-const subPeakVal = document.getElementById('subPeakVal');
-const subFastestVal = document.getElementById('subFastestVal');
-const tipContent = document.getElementById('tipContent');
+const goTestTime = document.getElementById('goTestTime');
+const goRingOuter = document.getElementById('goRingOuter');
+const goRingMid = document.getElementById('goRingMid');
+const goRingInner = document.getElementById('goRingInner');
+const goIndexValue = document.getElementById('goIndexValue');
+const goMiniTrend = document.getElementById('goMiniTrend');
+const goInsightList = document.getElementById('goInsightList');
+const goValidity = document.getElementById('goValidity');
+const goTipContent = document.getElementById('goTipContent');
+const goProReportBtn = document.getElementById('goProReportBtn');
 
 // ── Screen Management ──────────────────────────────────────────────────────
 function showScreen(screenId) {
@@ -390,6 +474,7 @@ function stopGameLoops() {
         cancelAnimationFrame(gameState.animationFrameId);
         gameState.animationFrameId = null;
     }
+    disarmResponseWindow();
     leafContainer.innerHTML = '';
     gameState.leaves = [];
     gameState.oldLeaves = [];
@@ -405,9 +490,28 @@ function handleInput(direction) {
 }
 
 document.addEventListener('keydown', (e) => {
+    if (e.repeat) return; // 防连打：长按方向键只算一次
     if (DIR_KEYS[e.key]) {
         e.preventDefault(); // Stop window scrolling
         handleInput(DIR_KEYS[e.key]);
+    }
+});
+
+// 页面切走自动暂停：保护计时与 RT 数据不被"切后台"污染
+document.addEventListener('visibilitychange', () => {
+    if (!gameState.gameActive) return;
+    if (document.hidden) {
+        gameState.pausedAt = performance.now();
+        stopGameTimer();
+        disarmResponseWindow();
+        synth.stopBGM();
+    } else if (gameState.pausedAt) {
+        const pausedDur = performance.now() - gameState.pausedAt;
+        gameState.sessionStartTime += pausedDur; // 阶段判定基于有效测试时间
+        gameState.pausedAt = null;
+        startGameTimer();
+        armResponseWindow();
+        synth.startBGM();
     }
 });
 
@@ -497,31 +601,9 @@ function updatePhysics(timestamp) {
     }
 }
 
-// ── Game Core Loop & Initialization ────────────────────────────────────────
-function initGame() {
-    stopGameLoops();
-    
-    gameState.score = 0;
-    gameState.multiplier = 1;
-    gameState.streak = 0;
-    gameState.peakMultiplier = 1;
-    gameState.timeLeft = 60;
-    gameState.gameActive = true;
-    gameState.records = [];
-    
-    scoreDisplay.innerText = '0';
-    scoreDisplay.dataset.raw = '0';
-    multiplierDisplay.innerText = '1x';
-    updateMultiplierMeterUI();
-    timerDisplay.innerText = '60s';
-    timerDisplay.classList.remove('critical');
-    timerBarFill.style.width = '100%';
-    timerBarFill.classList.remove('warning');
-    
-    showScreen('playingScreen');
-    
-    // Start count down timer
-    let lastTime = performance.now();
+// ── 计时器：独立启停，支持页面切走暂停 ────────────────────────────────────
+function startGameTimer() {
+    if (gameState.timerInterval) clearInterval(gameState.timerInterval);
     gameState.timerInterval = setInterval(() => {
         if (!gameState.gameActive) return;
         
@@ -541,11 +623,104 @@ function initGame() {
         if (gameState.timeLeft <= 5) {
             timerBarFill.classList.add('warning');
             timerDisplay.classList.add('critical');
-            if (Math.abs(gameState.timeLeft % 1) < 0.05) {
-                synth.play('tick');
+            gameBoard.classList.add('board-urgency');
+            // 按整数秒边界触发读秒（ceil 计数器，跨秒必触发，绝不漏拍）
+            const whole = Math.ceil(gameState.timeLeft);
+            if (whole !== gameState.lastBeepSec) {
+                gameState.lastBeepSec = whole;
+                synth.play(whole <= 1 ? 'final' : 'tick');
             }
+        } else {
+            gameState.lastBeepSec = 6;
+            gameBoard.classList.remove('board-urgency');
         }
     }, 100);
+}
+
+function stopGameTimer() {
+    if (gameState.timerInterval) {
+        clearInterval(gameState.timerInterval);
+        gameState.timerInterval = null;
+    }
+}
+
+// 单题响应窗口：超时自动跳题并计为异常试次
+function armResponseWindow() {
+    disarmResponseWindow();
+    gameState.responseTimer = setTimeout(() => {
+        if (!gameState.gameActive) return;
+        const meta = gameState.currentTrialMeta || {};
+        gameState.timeoutCount++;
+        gameState.records.push({
+            rule: gameState.currentColor,
+            congruent: (gameState.currentPointing === gameState.currentMoving),
+            isSwitch: !!meta.isSwitch,
+            correct: false,
+            rt: null,
+            phase: gameState.phase,
+            warmup: !!meta.isWarmup,
+            anomalous: 'timeout'
+        });
+        gameState.lastTrialMeta = meta;
+        // Warm-up 超时静默，正式题给负反馈
+        if (!meta.isWarmup) {
+            synth.play('incorrect');
+            triggerFlash('incorrect');
+            // 超时视同答错：对齐原版，重置连击与乘数
+            gameState.streak = 0;
+            gameState.multiplier = 1;
+            multiplierDisplay.innerText = '1x';
+            updateMultiplierMeterUI();
+        }
+        generateTrialLeaves(true);
+    }, TEST_CONFIG.responseWindowMs);
+}
+
+function disarmResponseWindow() {
+    if (gameState.responseTimer) {
+        clearTimeout(gameState.responseTimer);
+        gameState.responseTimer = null;
+    }
+}
+
+// ── Game Core Loop & Initialization ────────────────────────────────────────
+function initGame() {
+    stopGameLoops();
+    warmupBridge();
+    
+    gameState.score = 0;
+    gameState.multiplier = 1;
+    gameState.streak = 0;
+    gameState.peakMultiplier = 1;
+    gameState.timeLeft = 60;
+    gameState.lastBeepSec = 6;
+    gameState.gameActive = true;
+    gameState.records = [];
+    
+    // 测评状态重置
+    gameState.trialIndex = 0;
+    gameState.phase = 'adapt';
+    gameState.sameColorStreak = 0;
+    gameState.directionUsage = { up: 0, down: 0, left: 0, right: 0 };
+    gameState.currentTrialMeta = null;
+    gameState.lastTrialMeta = null;
+    gameState.timeoutCount = 0;
+    gameState.pausedAt = null;
+    gameState.sessionStartTime = performance.now();
+    
+    scoreDisplay.innerText = '0';
+    scoreDisplay.dataset.raw = '0';
+    multiplierDisplay.innerText = '1x';
+    updateMultiplierMeterUI();
+    timerDisplay.innerText = '60s';
+    timerDisplay.classList.remove('critical');
+    gameBoard.classList.remove('board-urgency');
+    timerBarFill.style.width = '100%';
+    timerBarFill.classList.remove('warning');
+    
+    showScreen('playingScreen');
+    
+    startGameTimer();
     
     // First trial spawn
     generateTrialLeaves(false);
@@ -576,13 +751,13 @@ function generateTrialLeaves(isTransition = true) {
     }
     gameState.leaves = [];
 
-    // 2. Select randomly the attributes of the new trial
-    const colors = ['green', 'orange'];
-    gameState.currentColor = colors[Math.floor(Math.random() * colors.length)];
-    
-    const dirs = ['up', 'down', 'left', 'right'];
-    gameState.currentPointing = dirs[Math.floor(Math.random() * dirs.length)];
-    gameState.currentMoving = dirs[Math.floor(Math.random() * dirs.length)];
+    // 2. 受控生成新试次（阶段渐进 + 切换/冲突配比 + 四向均衡）
+    const trial = pickNextTrial(gameState.lastTrialMeta);
+    gameState.currentTrialMeta = trial;
+    gameState.currentColor = trial.color;
+    gameState.currentPointing = trial.pointing;
+    gameState.currentMoving = trial.moving;
+    gameState.trialIndex++;
 
     // 3. Spawn 5 scattered leaves
     const pointData = DIRECTIONS[gameState.currentPointing.toUpperCase()];
@@ -628,58 +803,67 @@ function generateTrialLeaves(isTransition = true) {
     });
 
     gameState.trialStartTime = performance.now();
+    armResponseWindow();
 }
 
 function processPlayResponse(userInputDir) {
+    disarmResponseWindow(); // 本题已响应，关闭超时窗口
+
     const rt = performance.now() - gameState.trialStartTime;
-    
+    const meta = gameState.currentTrialMeta || {};
+    const isWarmup = !!meta.isWarmup;
+
     // Correct target is based on leaf color
     const targetDir = (gameState.currentColor === 'green') ? gameState.currentPointing : gameState.currentMoving;
     const isCorrect = (userInputDir === targetDir);
-    
-    // Determine whether this was a task-switch trial (changed rule color from previous trial)
-    let isSwitch = false;
-    if (gameState.records.length > 0) {
-        const lastRecord = gameState.records[gameState.records.length - 1];
-        isSwitch = (lastRecord.rule !== gameState.currentColor);
-    }
-    
-    // Save record log
+
+    // 异常分类：RT 低于视觉反应时下限视为预期反应/误触
+    let anomalous = null;
+    if (rt < TEST_CONFIG.minRTAnticipation) anomalous = 'anticipation';
+
+    // Save record log（isSwitch 取生成时受控判定，比事后比较更准）
     gameState.records.push({
         rule: gameState.currentColor,
         congruent: (gameState.currentPointing === gameState.currentMoving),
-        isSwitch: isSwitch,
+        isSwitch: !!meta.isSwitch,
         correct: isCorrect,
-        rt: rt
+        rt: rt,
+        phase: gameState.phase,
+        warmup: isWarmup,
+        anomalous: anomalous
     });
+    gameState.lastTrialMeta = meta;
 
     // Flash and Audio feedback
     if (isCorrect) {
         synth.play('correct');
         triggerFlash('correct');
         
-        // Multiplier & scoring calculations
-        const gained = 50 * gameState.multiplier;
-        gameState.score += gained;
-        animateScoreTo(gameState.score);
-        spawnScorePopup(gained);
-        spawnHitParticles(gameState.currentColor === 'green' ? '#58c27a' : '#ff9f43');
-        
-        gameState.streak++;
-        if (gameState.streak >= 4) {
-            gameState.streak = 0;
-            if (gameState.multiplier < 10) {
-                gameState.multiplier++;
-                synth.play('levelup');
-                if (gameState.multiplier > gameState.peakMultiplier) {
-                    gameState.peakMultiplier = gameState.multiplier;
-                }
-                spawnComboToast(`倍率提升 x${gameState.multiplier}！`);
-                const multiplierWrap = multiplierDisplay.closest('.multiplier-display');
-                if (multiplierWrap) {
-                    multiplierWrap.classList.remove('burst');
-                    void multiplierWrap.offsetWidth;
-                    multiplierWrap.classList.add('burst');
+        // Warm-up 题：只反馈不计分，不参与倍率/连击
+        if (!isWarmup) {
+            // Multiplier & scoring calculations
+            const gained = 50 * gameState.multiplier;
+            gameState.score += gained;
+            animateScoreTo(gameState.score);
+            spawnScorePopup(gained);
+            spawnHitParticles(gameState.currentColor === 'green' ? '#58c27a' : '#ff9f43');
+            
+            gameState.streak++;
+            if (gameState.streak >= 4) {
+                gameState.streak = 0;
+                if (gameState.multiplier < 10) {
+                    gameState.multiplier++;
+                    synth.play('levelup');
+                    if (gameState.multiplier > gameState.peakMultiplier) {
+                        gameState.peakMultiplier = gameState.multiplier;
+                    }
+                    spawnComboToast(`倍率提升 x${gameState.multiplier}！`);
+                    const multiplierWrap = multiplierDisplay.closest('.multiplier-display');
+                    if (multiplierWrap) {
+                        multiplierWrap.classList.remove('burst');
+                        void multiplierWrap.offsetWidth;
+                        multiplierWrap.classList.add('burst');
+                    }
                 }
             }
         }
@@ -689,10 +873,10 @@ function processPlayResponse(userInputDir) {
         gameBoard.classList.add('shake');
         setTimeout(() => gameBoard.classList.remove('shake'), 300);
         
-        // Decrement multiplier on error
-        gameState.streak = 0;
-        if (gameState.multiplier > 1) {
-            gameState.multiplier--;
+        // Decrement multiplier on error（Warm-up 不惩罚）——对齐原版：答错重置 ×1
+        if (!isWarmup) {
+            gameState.streak = 0;
+            gameState.multiplier = 1;
         }
     }
 
@@ -790,108 +974,434 @@ function triggerFlash(type) {
 
 // ── 反应力报告计算引擎 ──────────────────────────────────────────────────────
 
-// 等级元数据：S/A/B 三档
+// 等级元数据：五档测评评级（S/A/B/C/D），分享海报沿用
 const RANK_META = {
-    S: {
-        letter: 'S',
-        title: '反应力等级：S｜超敏捷',
-        tag: '超敏捷·反应小天才',
-        slogan: '原来我是反应小天才'
-    },
-    A: {
-        letter: 'A',
-        title: '反应力等级：A｜稳定在线',
-        tag: '稳扎稳打·状态在线',
-        slogan: '我的反应力状态还不错～'
-    },
-    B: {
-        letter: 'B',
-        title: '反应力等级：B｜有待提升',
-        tag: '潜力选手·多多练习',
-        slogan: '反应力还有很大的成长空间'
-    }
+    S: { letter: 'S', label: '优秀', title: '反应力等级：优秀', tag: '反应敏捷·发挥出色', slogan: '我的反应力发挥出色' },
+    A: { letter: 'A', label: '良好', title: '反应力等级：良好', tag: '状态不错·发挥稳定', slogan: '我的反应力状态不错' },
+    B: { letter: 'B', label: '中等', title: '反应力等级：中等', tag: '水平中等·有提升空间', slogan: '反应力还有提升空间' },
+    C: { letter: 'C', label: '偏弱', title: '反应力等级：偏弱', tag: '偏弱·建议加强训练', slogan: '反应力有点弱，开始练起来' },
+    D: { letter: 'D', label: '待提升', title: '反应力等级：待提升', tag: '待提升·坚持每日轻量训练', slogan: '每天一点点，反应力练起来' }
 };
 
-// 等级标题前的线描图标（与四维能力同源风格，随 S/A/B 等级切换）
-// S=奖牌、A=对勾圆环、B=上升趋势；路径同时用于 HTML SVG 与分享卡 Path2D
+// 等级标题前的线描图标（与四维能力同源风格，随 S/A/B/C/D 等级切换）
+// S=奖牌、A=对勾圆环、B=上升趋势、C=缺口圆环、D=下降趋势；路径同时用于 HTML SVG 与分享卡 Path2D
 const RANK_TITLE_ICON_PATHS = {
     S: 'M12 2a6 6 0 1 0 0 12a6 6 0 1 0 0-12 M15.477 12.89 17 22l-5-3-5 3 1.523-9.11',
     A: 'M22 11.08V12a10 10 0 1 1-5.93-9.14 M22 4 12 14.01 9 11.01',
-    B: 'M23 6 13.5 15.5 8.5 10.5 1 18 M17 6 23 6 23 12'
+    B: 'M23 6 13.5 15.5 8.5 10.5 1 18 M17 6 23 6 23 12',
+    C: 'M21 12a9 9 0 1 1-9-9 M21 12 23 12',
+    D: 'M1 7l6 6 4-4 12 12 M17 21 23 21 23 15'
 };
 
 // 解读/口号/页脚处的小星标（4 角 sparkle 与 5 角 star），仅用于分享卡 Canvas 绘制
 const SHARE_SPARK_PATH = 'M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z';
 const SHARE_STAR_PATH = 'M12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2';
 
-// 判定反应力等级
-// 输入：avgRt(平均正确反应时ms), accuracy(正确率%), switchCost(切换损耗ms)
-function calcRank(avgRt, accuracy, switchCost) {
-    if (avgRt > 0 && avgRt < 800 && accuracy >= 85 && switchCost < 200) return 'S';
-    if (avgRt > 0 && avgRt < 1200 && accuracy >= 70) return 'A';
-    return 'B';
+// ══════════════════════════════════════════════════════════════════════════
+// 测评统计引擎：清洗 → 中位数 → 指标 → 综合指数 → 有效性 → 人话解读
+// ══════════════════════════════════════════════════════════════════════════
+
+// 中位数（抗离群，对比均值更稳）
+function median(arr) {
+    if (!arr || !arr.length) return 0;
+    const sorted = arr.slice().sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-// 四大能力评价（返回 {valueText, evalText}）
-function evalSpeed(avgRepeatRt) {
-    if (avgRepeatRt <= 0) return { valueText: '—', evalText: '数据不足' };
-    if (avgRepeatRt < 700) return { valueText: avgRepeatRt + 'ms', evalText: '偏快' };
-    if (avgRepeatRt <= 1000) return { valueText: avgRepeatRt + 'ms', evalText: '正常' };
-    return { valueText: avgRepeatRt + 'ms', evalText: '可以再练练' };
-}
-
-function evalAccuracy(accuracy) {
-    if (accuracy >= 85) return { valueText: accuracy + '%', evalText: '很稳定' };
-    if (accuracy >= 70) return { valueText: accuracy + '%', evalText: '偶尔失误' };
-    return { valueText: accuracy + '%', evalText: '容易判断出错' };
-}
-
-function evalSwitch(switchCost) {
-    if (switchCost <= 0) return { valueText: '0ms', evalText: '灵活' };
-    if (switchCost < 150) return { valueText: '+' + switchCost + 'ms', evalText: '灵活' };
-    if (switchCost <= 350) return { valueText: '+' + switchCost + 'ms', evalText: '普通' };
-    return { valueText: '+' + switchCost + 'ms', evalText: '切换有点吃力' };
-}
-
-function evalFocus(totalQuestions) {
-    if (totalQuestions >= 15) return { valueText: totalQuestions + '题', evalText: '专注力在线' };
-    if (totalQuestions >= 10) return { valueText: totalQuestions + '题', evalText: '略有波动' };
-    return { valueText: totalQuestions + '题', evalText: '容易注意力涣散' };
-}
-
-// 找出最短板维度，用于个性化解读和训练建议
-// 返回短板key: 'speed' | 'accuracy' | 'switch' | 'focus' | null(全优)
-function findWeakness(speedEval, accuracyEval, switchEval, focusEval) {
-    const weakSet = new Set(['可以再练练', '容易判断出错', '切换有点吃力', '容易注意力涣散']);
-    if (weakSet.has(speedEval)) return 'speed';
-    if (weakSet.has(switchEval)) return 'switch';
-    if (weakSet.has(accuracyEval)) return 'accuracy';
-    if (weakSet.has(focusEval)) return 'focus';
-    return null;
-}
-
-// 个性化解读文案（根据等级+短板，精简单行版）
-function getInterpretText(rank, weakness) {
-    if (rank === 'S') return '又快又稳，切换自如，天赋很不错';
-    if (rank === 'A') {
-        if (weakness === 'switch') return '反应不错，规则切换还可以再加强';
-        if (weakness === 'accuracy') return '手速很快，判断再稳一点就更好';
-        return '表现稳定，继续保持可向S级冲刺';
+// 分段线性标准化：按折线点把原始值映射到 0-100 分
+function lerpScore(value, points) {
+    if (!points || !points.length) return 0;
+    const v = Number(value);
+    if (v <= points[0][0]) return points[0][1];
+    for (let i = 1; i < points.length; i++) {
+        if (v <= points[i][0]) {
+            const x0 = points[i - 1][0], y0 = points[i - 1][1];
+            const x1 = points[i][0], y1 = points[i][1];
+            return Math.round(y0 + (v - x0) / (x1 - x0) * (y1 - y0));
+        }
     }
-    // B级
-    if (weakness === 'speed') return '多练短时训练，慢慢提升反应速度';
-    if (weakness === 'switch') return '多练切换题，提升思维转场灵敏度';
-    return '反应力可以训练，从每天3分钟开始';
+    return points[points.length - 1][1];
 }
 
-// 训练建议文案（根据短板，精简版）
-function getTipContent(weakness) {
-    switch (weakness) {
-        case 'speed': return '多做2-3分钟短时快速反应训练，锻炼瞬时手速。';
-        case 'switch': return '多练习规则频繁切换的关卡，提升思维转场灵敏度。';
-        case 'accuracy': return '答题不要太心急，适当放缓节奏，减少冲动误触。';
-        case 'focus': return '短时间集中训练，疲劳时停止，保护注意力状态。';
-        default: return '继续保持日常轻量训练，维持你的灵敏反应力！';
+// 各分项标准化折线（x 升序；speed/switch/inhib/cv 越低越好，accuracy 越高越好）
+const SCORE_POINTS = {
+    speed:    [[500, 100], [700, 90], [1000, 75], [1300, 60], [1600, 45], [2000, 30], [3000, 15]],
+    accuracy: [[0, 15], [60, 50], [75, 70], [90, 90], [100, 100]],
+    switch:   [[0, 95], [50, 90], [150, 72], [300, 55], [600, 35], [1000, 15]],
+    inhib:    [[0, 95], [50, 90], [150, 72], [300, 55], [600, 35], [1000, 15]],
+    cv:       [[0, 100], [0.25, 90], [0.4, 72], [0.6, 50], [1.0, 30]]
+};
+
+// 综合指数 → 五档评级
+function rankFromIndex(idx) {
+    if (idx >= 85) return 'S';
+    if (idx >= 70) return 'A';
+    if (idx >= 55) return 'B';
+    if (idx >= 40) return 'C';
+    return 'D';
+}
+
+// 核心统计：从 gameState.records 计算全部测评指标
+function computeStats() {
+    const formal = gameState.records.filter(function (r) { return !r.warmup; }); // 正式试次（剔除热身）
+    const formalCount = formal.length;
+
+    // 异常试次：超时 / 预期反应 / 超上限 RT
+    const anomalies = formal.filter(function (r) {
+        return r.anomalous === 'timeout' || r.anomalous === 'anticipation' || (r.rt !== null && r.rt > TEST_CONFIG.maxValidRT);
+    });
+    const anomalyRate = formalCount > 0 ? Math.round(anomalies.length / formalCount * 100) : 0;
+
+    // 有效试次（剔除异常）与正确试次
+    const valid = formal.filter(function (r) { return !r.anomalous && r.rt !== null && r.rt <= TEST_CONFIG.maxValidRT; });
+    const correct = valid.filter(function (r) { return r.correct; });
+    const correctCount = correct.length;
+    const accuracy = valid.length > 0 ? Math.round(correctCount / valid.length * 100) : 0;
+
+    // 反应速度：正确试次中位 RT
+    const medianRt = correct.length > 0 ? Math.round(median(correct.map(function (r) { return r.rt; }))) : 0;
+    const fastestRt = correct.length > 0 ? Math.round(Math.min.apply(null, correct.map(function (r) { return r.rt; }))) : 0;
+
+    // 切换损耗：切换 − 重复（中位数差）；样本不足 4 题为 null
+    const rep = correct.filter(function (r) { return !r.isSwitch; });
+    const sw = correct.filter(function (r) { return r.isSwitch; });
+    let switchCost = null;
+    if (rep.length >= 4 && sw.length >= 4) {
+        switchCost = Math.max(0, Math.round(median(sw.map(function (r) { return r.rt; })) - median(rep.map(function (r) { return r.rt; }))));
+    }
+
+    // 抑制损耗：冲突 − 一致（中位数差）
+    const cong = correct.filter(function (r) { return r.congruent; });
+    const conf = correct.filter(function (r) { return !r.congruent; });
+    let inhibCost = null;
+    if (cong.length >= 4 && conf.length >= 4) {
+        inhibCost = Math.max(0, Math.round(median(conf.map(function (r) { return r.rt; })) - median(cong.map(function (r) { return r.rt; }))));
+    }
+
+    // 反应稳定性：CV = SD / Mean
+    const rtArr = correct.map(function (r) { return r.rt; });
+    let cv = null;
+    if (rtArr.length >= 8) {
+        const mean = rtArr.reduce(function (s, v) { return s + v; }, 0) / rtArr.length;
+        const sd = Math.sqrt(rtArr.reduce(function (s, v) { return s + (v - mean) * (v - mean); }, 0) / rtArr.length);
+        cv = Math.round(sd / mean * 100) / 100;
+    }
+
+    // 冲动指数：答错中位 RT 明显快于答对 → 抢答倾向
+    const wrong = valid.filter(function (r) { return !r.correct; });
+    let impulse = false, impulseCount = 0;
+    if (wrong.length >= 3 && correct.length >= 3) {
+        const wrongMed = median(wrong.map(function (r) { return r.rt; }));
+        if (wrongMed < medianRt - 80) { impulse = true; impulseCount = wrong.length; }
+    }
+
+    // 疲劳信号：压力段准确率 − 核心段准确率（负值=下滑）
+    let fatigueDrop = null;
+    const core = valid.filter(function (r) { return r.phase === 'core'; });
+    const pressure = valid.filter(function (r) { return r.phase === 'pressure'; });
+    if (core.length >= 6 && pressure.length >= 4) {
+        const coreAcc = core.filter(function (r) { return r.correct; }).length / core.length * 100;
+        const pressAcc = pressure.filter(function (r) { return r.correct; }).length / pressure.length * 100;
+        fatigueDrop = Math.round(pressAcc - coreAcc);
+    }
+
+    // ── 过程表现：从答题序列深挖 60 秒内的专注与自控信号（全为本局实测） ──
+    // 序列口径：答对=成功；答错/超时/预期反应=失误；按答题顺序逐题判定
+    let maxStreak = 0, maxErrStreak = 0, recRate = null, focusDrop = null;
+    const seq = formal.map(function (r) { return r.correct === true; });
+    let curOk = 0, curErr = 0;
+    seq.forEach(function (ok) {
+        curOk = ok ? curOk + 1 : 0;
+        curErr = ok ? 0 : curErr + 1;
+        if (curOk > maxStreak) maxStreak = curOk;
+        if (curErr > maxErrStreak) maxErrStreak = curErr;
+    });
+    // 错后恢复率：失误后下一题立即答对的比例（体现情绪自控与抗挫节奏）
+    if (maxErrStreak > 0) {
+        let recBase = 0, recHit = 0;
+        for (let i = 0; i < seq.length - 1; i++) {
+            if (!seq[i]) { recBase++; if (seq[i + 1]) recHit++; }
+        }
+        recRate = recBase > 0 ? Math.round(recHit / recBase * 100) : null;
+    }
+    // 专注保持：有效试次按序均分前后半程，比较正确率（后半 − 前半）
+    if (valid.length >= 12) {
+        const half = Math.floor(valid.length / 2);
+        const h1 = valid.slice(0, half);
+        const h2 = valid.slice(valid.length - half);
+        const a1 = h1.filter(function (r) { return r.correct; }).length / h1.length * 100;
+        const a2 = h2.filter(function (r) { return r.correct; }).length / h2.length * 100;
+        focusDrop = Math.round(a2 - a1);
+    }
+
+    // 分项分数
+    const sSpeed = medianRt > 0 ? lerpScore(medianRt, SCORE_POINTS.speed) : 0;
+    const sAcc = lerpScore(accuracy, SCORE_POINTS.accuracy);
+    const sSwitch = switchCost !== null ? lerpScore(switchCost, SCORE_POINTS.switch) : null;
+    const sInhib = inhibCost !== null ? lerpScore(inhibCost, SCORE_POINTS.inhib) : null;
+    const sCv = cv !== null ? lerpScore(cv, SCORE_POINTS.cv) : null;
+
+    // 综合指数：速度30 + 准确25 + 切换20 + 稳定15 + 抑制10（抑制样本不足时权重并入切换）
+    let index = 0;
+    if (medianRt > 0 && valid.length > 0) {
+        let wSwitch = 20, wInhib = 10;
+        if (sInhib === null) { wSwitch += wInhib; wInhib = 0; }
+        const total = 30 + 25 + wSwitch + 15 + wInhib;
+        index = Math.round((
+            sSpeed * 30 + sAcc * 25 +
+            (sSwitch !== null ? sSwitch : sSpeed) * wSwitch +
+            (sCv !== null ? sCv : sSpeed) * 15 +
+            (sInhib !== null ? sInhib : 0) * wInhib
+        ) / total);
+    }
+
+    // 数据充分性与可信度
+    const sampleOK = valid.length >= 20;
+    const reliable = sampleOK && anomalyRate <= 30;
+
+    // 短板：分项中最低且低于 75 分的维度
+    const cands = [];
+    if (medianRt > 0) cands.push({ k: 'speed', v: sSpeed });
+    cands.push({ k: 'accuracy', v: sAcc });
+    if (sSwitch !== null) cands.push({ k: 'switch', v: sSwitch });
+    if (sCv !== null) cands.push({ k: 'stability', v: sCv });
+    if (sInhib !== null) cands.push({ k: 'inhibition', v: sInhib });
+    let weakest = null;
+    if (cands.length) {
+        cands.sort(function (a, b) { return a.v - b.v; });
+        if (cands[0].v < 75) weakest = cands[0].k;
+    }
+
+    return {
+        formalCount: formalCount, anomalyRate: anomalyRate, validCount: valid.length,
+        correctCount: correctCount, accuracy: accuracy,
+        medianRt: medianRt, fastestRt: fastestRt,
+        switchCost: switchCost, inhibCost: inhibCost, cv: cv,
+        impulse: impulse, impulseCount: impulseCount, fatigueDrop: fatigueDrop,
+        sSpeed: sSpeed, sAcc: sAcc, sSwitch: sSwitch, sInhib: sInhib, sCv: sCv,
+        index: index, sampleOK: sampleOK, reliable: reliable, weakest: weakest,
+        maxStreak: maxStreak, maxErrStreak: maxErrStreak, recRate: recRate, focusDrop: focusDrop,
+        timeoutCount: gameState.timeoutCount,
+        score: gameState.score, peakMultiplier: gameState.peakMultiplier
+    };
+}
+
+// 人话解读图标（SVG path，key → 图标与主题色）
+const INSIGHT_ICONS = {
+    speed:    { c: '#38bdf8', path: 'M13 2 3 14h9l-1 8 10-12h-9l1-8z' },
+    accuracy: { c: '#34d399', path: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 2v4 M12 18v4 M2 12h4 M18 12h4' },
+    switch:   { c: '#a78bfa', path: 'M17 1l4 4-4 4 M3 11V9a4 4 0 0 1 4-4h14 M7 23l-4-4 4-4 M21 13v2a4 4 0 0 1-4 4H3' },
+    fatigue:  { c: '#fb923c', path: 'M12 2s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z' },
+    impulse:  { c: '#fbbf24', path: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2' }
+};
+
+// 人话解读：每条都引用本次实测数值，返回结构化 {key, tag, text, main, sub}
+// 文案刻意精简（≤18 字），保证分享卡与报告页都能单行完整显示、不换行；
+// main/sub 为结算页 3 卡横排拆解（主数值醒目 + 短注），text 保持分享卡/报告页整句
+function buildInsights(stats) {
+    const list = [];
+    if (stats.medianRt > 0) {
+        const rt = stats.medianRt;
+        const sec = (rt / 1000).toFixed(2);
+        // 绝对区间描述（不引入人群对比）：基于选择反应任务的一般参考区间
+        const speedDesc = rt < 450 ? '反应很快' : (rt < 600 ? '反应不错' : (rt < 750 ? '反应一般' : '反应偏慢'));
+        list.push({ key: 'speed', tag: '手速', main: sec + ' 秒/题', sub: speedDesc, text: '平均 ' + sec + ' 秒/题，' + speedDesc });
+    }
+    if (stats.accuracy > 0) {
+        const base = { key: 'accuracy', tag: '正确', main: stats.correctCount + '/' + stats.validCount + ' 题' };
+        if (stats.accuracy >= 90) {
+            list.push(Object.assign({}, base, { sub: stats.accuracy + '% · 发挥很稳', text: stats.correctCount + '/' + stats.validCount + ' 题（' + stats.accuracy + '%），发挥很稳' }));
+        } else if (stats.accuracy >= 75) {
+            list.push(Object.assign({}, base, { sub: stats.accuracy + '% · 整体稳定', text: stats.correctCount + '/' + stats.validCount + ' 题（' + stats.accuracy + '%），整体稳定' }));
+        } else {
+            list.push(Object.assign({}, base, { sub: stats.accuracy + '% · 容易看错规则', text: stats.correctCount + '/' + stats.validCount + ' 题（' + stats.accuracy + '%），容易看错规则' }));
+        }
+    }
+    if (stats.switchCost !== null) {
+        const base = { key: 'switch', tag: '切换' };
+        if (stats.switchCost < 50) {
+            list.push(Object.assign({}, base, { main: '几乎不拖慢', sub: '切换很流畅', text: '规则切换几乎不拖慢你' }));
+        } else if (stats.switchCost < 150) {
+            list.push(Object.assign({}, base, { main: '稍慢属正常', sub: '切换略慢一点点', text: '切换规则稍慢，属正常' }));
+        } else if (stats.switchCost < 300) {
+            list.push(Object.assign({}, base, { main: '切换明显变慢', sub: '建议专项练习', text: '切换规则明显变慢，可专项练' }));
+        } else {
+            list.push(Object.assign({}, base, { main: '切换比较吃力', sub: '建议先放慢', text: '切换比较吃力，建议先放慢' }));
+        }
+    }
+    if (stats.fatigueDrop !== null && stats.fatigueDrop <= -8) {
+        list.push({ key: 'fatigue', tag: '尾声', main: '有点疲劳', sub: '最后 20 秒出错偏多', text: '最后 20 秒出错偏多，有点疲劳' });
+    }
+    if (stats.impulse) {
+        list.push({ key: 'impulse', tag: '节奏', main: stats.impulseCount + ' 次抢答', sub: '放稳一点更准', text: '有 ' + stats.impulseCount + ' 次抢答，放稳更准' });
+    }
+    return list;
+}
+
+// 渲染结算页"你这次的表现"：一行 3 个小卡（手速 / 准头 / 切换），仅本局数据
+function renderInsightCards(container, list) {
+    if (!container) return;
+    container.innerHTML = '';
+    if (!list || !list.length) {
+        const empty = document.createElement('p');
+        empty.className = 'insight-empty';
+        empty.textContent = '有效样本偏少，本次结果仅供参考，建议再测一次。';
+        container.appendChild(empty);
+        return;
+    }
+    const keys = ['speed', 'accuracy', 'switch'];
+    const wrap = document.createElement('div');
+    wrap.className = 'insight-cards';
+    keys.forEach(function (k) {
+        let item = null;
+        for (let i = 0; i < list.length; i++) { if (list[i].key === k) { item = list[i]; break; } }
+        if (!item) return;
+        const icon = INSIGHT_ICONS[k] || { c: '#94a3b8', path: 'M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z' };
+        const card = document.createElement('div');
+        card.className = 'insight-card';
+        card.style.setProperty('--insight-c', icon.c);
+        card.innerHTML = '<div class="ic-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="' + icon.path + '"/></svg><span>' + item.tag + '</span></div>' +
+            '<div class="ic-main">' + (item.main || item.text) + '</div>' +
+            '<div class="ic-sub">' + (item.sub || '') + '</div>';
+        wrap.appendChild(card);
+    });
+    container.appendChild(wrap);
+}
+
+// 渲染单条解读卡片（图标 + 标签 + 人话文本）
+function renderInsightItem(insight) {
+    if (typeof insight === 'string') {
+        // 兼容旧版字符串格式
+        const li = document.createElement('li');
+        li.className = 'insight-item';
+        const body = document.createElement('div');
+        body.className = 'insight-body';
+        const p = document.createElement('p');
+        p.className = 'insight-text';
+        p.textContent = insight;
+        body.appendChild(p);
+        li.appendChild(body);
+        return li;
+    }
+    const icon = INSIGHT_ICONS[insight.key] || { c: '#94a3b8', path: 'M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z' };
+    const li = document.createElement('li');
+    li.className = 'insight-item';
+    li.style.setProperty('--insight-c', icon.c);
+    const iconWrap = document.createElement('span');
+    iconWrap.className = 'insight-icon';
+    iconWrap.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="' + icon.path + '"/></svg>';
+    const body = document.createElement('div');
+    body.className = 'insight-body';
+    const tag = document.createElement('span');
+    tag.className = 'insight-tag';
+    tag.textContent = insight.tag || '';
+    const p = document.createElement('p');
+    p.className = 'insight-text';
+    p.textContent = insight.text || '';
+    body.appendChild(tag);
+    body.appendChild(p);
+    li.appendChild(iconWrap);
+    li.appendChild(body);
+    return li;
+}
+
+// 指数环形仪表（Apple 健身三环风格）：外环手速 / 中环准头 / 内环切换，中央为等级字母与综合分
+function setIndexRings(els, dims) {
+    if (!els) return;
+    const conf = [
+        { el: els.outer, key: 'sSpeed', r: 54 },
+        { el: els.mid, key: 'sAcc', r: 46 },
+        { el: els.inner, key: 'sSwitch', r: 38 },
+        { el: els.a, key: 'sInhib', r: 30 },
+        { el: els.b, key: 'sCv', r: 22 }
+    ];
+    conf.forEach(function (c) {
+        if (!c.el) return;
+        const circ = 2 * Math.PI * c.r;
+        c.el.style.strokeDasharray = String(circ.toFixed(1));
+        const v = dims && dims[c.key] != null ? dims[c.key] : 0;
+        const pct = Math.max(0, Math.min(100, v)) / 100;
+        c.el.style.strokeDashoffset = String((circ * (1 - pct)).toFixed(1));
+    });
+}
+
+
+// 迷你 5 点趋势（结算页圆环下方）：固定 5 个槽位、最新在右并高亮；
+// 记录不足 5 次时，左侧空槽显示占位空心点；无历史时 5 个槽位全为占位
+function renderMiniTrend(container, hist) {
+    if (!container) return;
+    const svg = container.querySelector('.mini-trend-svg');
+    if (!svg) return;
+    const recent = hist.slice(0, 5); // hist[0] = 本次（最新）
+    const W = 200, H = 50, padL = 8, padR = 8, padT = 24, padB = 4;
+    const step = (W - padL - padR) / 4;
+    const slotX = function (i) { return Math.round(padL + i * step); };
+    const yOf = function (v) { return Math.round(padT + (100 - v) / 100 * (H - padT - padB)); };
+    const labelY = 11; // 分数固定置于顶部行，与分点保持稳定间距（最小 ≈6px）
+    // 槽位映射：recent[j]（j=0 最新）→ 槽位 i = 4 - j，占位自动落在左侧空槽
+    const slots = [null, null, null, null, null];
+    recent.forEach(function (h, j) {
+        const i = 4 - j;
+        slots[i] = { v: h.index !== undefined ? h.index : 0 };
+    });
+    let svgHtml = '';
+    // 连线：相邻实点（跳过占位）
+    let prev = null;
+    slots.forEach(function (s, i) {
+        if (!s) return;
+        const x = slotX(i), y = yOf(s.v);
+        if (prev) {
+            svgHtml += '<line class="mini-trend-link" x1="' + prev.x + '" y1="' + prev.y + '" x2="' + x + '" y2="' + y + '"/>';
+        }
+        prev = { x: x, y: y };
+    });
+    // 点：实点（小一档）/ 占位点；最新点稍大并高亮
+    slots.forEach(function (s, i) {
+        const x = slotX(i);
+        if (s) {
+            const y = yOf(s.v);
+            const isNewest = (i === 4);
+            svgHtml += '<circle class="mini-trend-dot' + (isNewest ? ' newest' : '') + '" cx="' + x + '" cy="' + y + '" r="' + (isNewest ? 3.8 : 2.6) + '"/>';
+            if (isNewest) {
+                svgHtml += '<text class="mini-trend-label" x="' + x + '" y="' + labelY + '" text-anchor="middle">' + s.v + '</text>';
+            }
+        } else {
+            svgHtml += '<circle class="mini-trend-ph" cx="' + x + '" cy="' + yOf(50) + '" r="3"/>';
+        }
+    });
+    svg.innerHTML = svgHtml;
+}
+
+// 针对性训练建议（基于短板）；文案刻意精简（≤22 字），保证分享卡与报告页单行完整显示
+function buildAdvice(stats) {
+    const diag = buildDiagnosis(stats);
+    const dk = diag && diag.main ? diag.main.key : '';
+    switch (dk) {
+        case 'swift':
+            return '挑战连续答对 5 题，看看连击能到哪！';
+        case 'steady':
+            return '下一局快一点点，看看能不能又稳又快！';
+        case 'wavy':
+            return '挑战连续 5 题不失手，看看状态能稳多久！';
+        case 'impulse':
+            return '给自己半秒判断，挑战一次又快又准！';
+        case 'anxious':
+            return '先稳住开局，看看能不能一路连下去！';
+        case 'miss':
+            return '看到答案就大胆出手，挑战一次零超时！';
+        case 'random':
+            return '先热一局手感，再来挑战真正的自己！';
+        case 'low':
+            return '准备好了再来一次，这次完整挑战到底！';
+        case 'slow':
+            return '下一局逐步提速，找到属于你的最佳节奏！';
+        case 'normal':
+            return '保持手感，挑战更长连击，看看能否突破自己！';
+        case 'fatigue':
+            return '练耐力：后半程保持节奏别掉速，3 天后复测。';
+        default:
+            return '保持现状：隔 2–3 天测一次，看趋势稳不稳。';
     }
 }
 
@@ -909,133 +1419,192 @@ function applyRankHeroClass(heroEl, rank) {
     // 将当前等级强调色提升到所在屏幕，供解读星标等屏内元素取用
     const screenEl = heroEl.closest('.screen');
     if (screenEl) {
-        const accentMap = { S: '#fbbf24', A: '#6ee7b7', B: '#93c5fd' };
+        const accentMap = { S: '#fbbf24', A: '#6ee7b7', B: '#93c5fd', C: '#f87171', D: '#94a3b8' };
         screenEl.style.setProperty('--rank-accent', accentMap[rank] || '#fbbf24');
     }
 }
 
 function endGame() {
     stopGameLoops();
+    gameBoard.classList.remove('board-urgency');
     synth.stopBGM(); // 游戏结束进入报告页，暂停背景音
     synth.play('gameover');
 
-    // Basic calculation metrics
-    const totalTrials = gameState.records.length;
-    const correctTrials = gameState.records.filter(r => r.correct).length;
-    const accuracy = totalTrials > 0 ? Math.round((correctTrials / totalTrials) * 100) : 0;
-
-    // Filter correct trials for latency calculations
-    const correctRecords = gameState.records.filter(r => r.correct);
-
-    // Average RT
-    const avgRt = correctRecords.length > 0
-        ? Math.round(correctRecords.reduce((sum, r) => sum + r.rt, 0) / correctRecords.length)
-        : 0;
-
-    // Repeat trials (same rule color as preceding trial)
-    const repeatTrials = correctRecords.filter(r => !r.isSwitch);
-    const avgRepeatRt = repeatTrials.length > 0
-        ? Math.round(repeatTrials.reduce((sum, r) => sum + r.rt, 0) / repeatTrials.length)
-        : 0;
-
-    // Switch trials (changed rule color from preceding trial)
-    const switchTrials = correctRecords.filter(r => r.isSwitch);
-    const avgSwitchRt = switchTrials.length > 0
-        ? Math.round(switchTrials.reduce((sum, r) => sum + r.rt, 0) / switchTrials.length)
-        : 0;
-
-    // Task-switching cost
-    const switchCost = (avgRepeatRt > 0 && avgSwitchRt > 0)
-        ? Math.max(0, avgSwitchRt - avgRepeatRt)
-        : 0;
-
-    // 最快单次反应时间
-    const fastestRt = correctRecords.length > 0
-        ? Math.round(Math.min.apply(null, correctRecords.map(r => r.rt)))
-        : 0;
-
-    // ── 反应力报告计算 ──
-    const rank = calcRank(avgRt, accuracy, switchCost);
+    // ── 测评统计（清洗 → 中位数 → 指标 → 综合指数） ──
+    const stats = computeStats();
+    const rank = stats.index > 0 ? rankFromIndex(stats.index) : 'D';
     const rankMeta = RANK_META[rank];
+    const insights = buildInsights(stats);
+    const advice = buildAdvice(stats);
+    const diag = buildDiagnosis(stats);
 
-    const speedResult = evalSpeed(avgRepeatRt || avgRt);
-    const accuracyResult = evalAccuracy(accuracy);
-    const switchResult = evalSwitch(switchCost);
-    const focusResult = evalFocus(totalTrials);
+    const now = new Date();
+    const dateStr = (now.getMonth() + 1) + '月' + now.getDate() + '日 ' +
+        String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
 
-    const weakness = findWeakness(speedResult.evalText, accuracyResult.evalText, switchResult.evalText, focusResult.evalText);
-    const interpret = getInterpretText(rank, weakness);
-    const tip = getTipContent(weakness);
-
-    // ── 渲染结束页 ──
-    rankLetter.innerText = rankMeta.letter;
+    // ── 渲染结论区：等级标题（等级字母入标题）+ 环形仪表（中央仅综合分） ──
     applyRankHeroClass(rankHero, rank);
-    rankTitle.innerText = rankMeta.title;
-    rankTag.innerText = rankMeta.tag;
-    interpretText.innerText = interpret;
+    // 结算页结论与首页报告一致：同源画像（名 + 小标题 + 评语）
+    rankTitle.innerText = diag.main.name;
+    rankTag.innerText = diag.main.title;
+    if (goVerdict) goVerdict.innerText = diag.main.verdict;
+    if (goTestTime) goTestTime.innerText = dateStr;
+    setIndexRings({ outer: goRingOuter, mid: goRingMid, inner: goRingInner }, {
+        sSpeed: stats.sSpeed, sAcc: stats.sAcc, sSwitch: stats.sSwitch
+    });
+    if (goIndexValue) goIndexValue.innerText = stats.index;
 
-    abilitySpeedVal.innerText = speedResult.valueText;
-    abilitySpeedEval.innerText = speedResult.evalText;
-    abilityAccuracyVal.innerText = accuracyResult.valueText;
-    abilityAccuracyEval.innerText = accuracyResult.evalText;
-    abilitySwitchVal.innerText = switchResult.valueText;
-    abilitySwitchEval.innerText = switchResult.evalText;
-    abilityFocusVal.innerText = focusResult.valueText;
-    abilityFocusEval.innerText = focusResult.evalText;
+    // ── 人话解读（本次实测数据生成，3 卡横排） ──
+    if (goInsightList) {
+        renderInsightCards(goInsightList, insights);
+    }
 
-    subScoreVal.innerText = gameState.score.toLocaleString();
-    subPeakVal.innerText = gameState.peakMultiplier + 'x';
-    subFastestVal.innerText = fastestRt > 0 ? fastestRt + 'ms' : '—';
+    // ── 数据有效性（正常时不显示，异常时才人话提示） ──
+    if (goValidity) {
+        if (stats.reliable) {
+            goValidity.textContent = '';
+            goValidity.style.display = 'none';
+        } else {
+            const txt = stats.validCount < 20
+                ? '这次答题中断较多，结果仅供参考，建议重新测一次'
+                : '这次测试受干扰较多，结果仅供参考';
+            goValidity.textContent = txt;
+            goValidity.className = 'validity-note warn';
+            goValidity.style.display = '';
+        }
+    }
 
-    tipContent.innerText = tip;
+    // ── 训练建议 ──
+    if (goTipContent) goTipContent.innerText = advice;
 
-    // 保存快照供分享使用（含完整报告字段）
+    // ── 历史保存与迷你趋势（圆环下方 5 点，替换原"建议连续测 3 次取稳定值"） ──
+    const hist = saveHistoryEntry(stats, rank, dateStr);
+    if (goMiniTrend) renderMiniTrend(goMiniTrend, hist);
+
+    // ── 分享快照（兼容旧分享卡字段 + 新测评字段） ──
     shareSnapshot = {
-        score: gameState.score,
-        accuracy: accuracy,
-        peakMultiplier: gameState.peakMultiplier,
-        switchCost: switchCost,
-        total: totalTrials,
-        avgRt: avgRt,
-        avgRepeatRt: avgRepeatRt,
-        fastestRt: fastestRt,
+        score: stats.score,
+        accuracy: stats.accuracy,
+        peakMultiplier: stats.peakMultiplier,
+        switchCost: stats.switchCost !== null ? stats.switchCost : 0,
+        total: stats.validCount,
+        avgRt: stats.medianRt,
+        fastestRt: stats.fastestRt,
+        index: stats.index,
         rank: rank,
         rankLetter: rankMeta.letter,
+        rankLabel: rankMeta.label,
         rankTitle: rankMeta.title,
         rankTag: rankMeta.tag,
         slogan: rankMeta.slogan,
-        speedEval: speedResult.evalText,
-        accuracyEval: accuracyResult.evalText,
-        switchEval: switchResult.evalText,
-        focusEval: focusResult.evalText,
-        interpretText: interpret,
-        tipContent: tip,
-        speedValue: speedResult.valueText,
-        accuracyValue: accuracyResult.valueText,
-        switchValue: switchResult.valueText,
-        focusValue: focusResult.valueText
+        interpretText: insights[0] || '本次测评完成，看看你的反应力水平',
+        tipContent: advice,
+        insights: insights,
+        sSpeed: stats.sSpeed, sAcc: stats.sAcc, sSwitch: stats.sSwitch, sInhib: stats.sInhib, sCv: stats.sCv,
+        diagName: diag.main.name,
+        diagSub: diag.main.title,
+        diagColor: diag.main.color,
+        diagVerdict: diag.main.verdict,
+        diagEvidence: buildEvidenceText(stats, diag),
+        speedEval: stats.medianRt > 0 ? (stats.medianRt < 1000 ? '偏快' : '正常') : '',
+        accuracyEval: stats.accuracy >= 85 ? '很稳定' : (stats.accuracy >= 70 ? '偶尔失误' : '容易判断出错'),
+        switchEval: stats.switchCost !== null ? (stats.switchCost < 150 ? '灵活' : (stats.switchCost <= 350 ? '普通' : '有点吃力')) : '数据不足',
+        focusEval: stats.validCount >= 20 ? '专注力在线' : '样本不足',
+        speedValue: stats.medianRt > 0 ? stats.medianRt + 'ms' : '—',
+        accuracyValue: stats.accuracy + '%',
+        switchValue: stats.switchCost !== null ? (stats.switchCost > 0 ? '+' + stats.switchCost + 'ms' : '约 0ms') : '—',
+        inhibValue: stats.inhibCost !== null ? (stats.inhibCost > 0 ? '+' + stats.inhibCost + 'ms' : '约 0ms') : '—',
+        cvText: stats.cv !== null ? String(stats.cv) : '—',
+        focusValue: stats.validCount + '题',
+        // ── 过程表现（本轮深挖）：全为本局实测，无人群对比 ──
+        maxStreak: stats.maxStreak,
+        maxErrStreak: stats.maxErrStreak,
+        recRate: stats.recRate,
+        focusDrop: stats.focusDrop,
+        seq: gameState.records.filter(function (r) { return !r.warmup; }).map(function (r) {
+            if (r.correct === true) return 1;      // 答对
+            if (r.anomalous) return -1;            // 异常（超时/预期反应）
+            return 0;                              // 答错
+        }),
+        // 专注力情绪曲线：每题状态分（答对按 RT 相对中位评分，答错/连错/异常逐级走低）
+        seqState: buildSeqState(gameState.records.filter(function (r) { return !r.warmup; }), stats.medianRt),
+        // 趋势图用时（秒）：每题实际答题用时，异常题按 1.5s 上限计
+        seqRt: gameState.records.filter(function (r) { return !r.warmup; }).map(function (r) {
+            if (r.correct === true) return Math.min(1.5, (r.rt || 0) / 1000);
+            if (r.anomalous) return 1.5;
+            return Math.min(1.5, (r.rt || 0) / 1000);
+        })
     };
 
-    // 预渲染分享图（避免首次点击时 canvas 渲染 + postNote 初始化叠加导致延迟）
+    // 预渲染分享图（仅内存，不写入 localStorage，避免撑爆配额）
     try {
         const preCanvas = renderShareCard(shareSnapshot);
-        shareSnapshot.shareImageDataUrl = preCanvas.toDataURL('image/png');
+        shareSnapshot.shareImageDataUrl = preCanvas.toDataURL('image/jpeg', 0.85);
     } catch (e) {
         console.warn('pre-render share card failed:', e);
     }
 
-    // 保存最近一次完整报告到 localStorage（供首页"我的反应力报告"查看）
+    // 立即预热分享图落盘：结算动画 + 用户阅读报告期间完成 writeTempFile，
+    // 点击分享时 filePath 必已就绪（dataURL 直传在真机不可靠，filePath 才稳定）
+    if (shareSnapshot.shareImageDataUrl) {
+        prewarmShareImage(shareSnapshot);
+    }
+
+    // 保存最近一次结构化报告（不含分享图 base64；含人话解读与统计摘要）
     try {
         const reportToSave = Object.assign({}, shareSnapshot, {
-            date: new Date().toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+            date: dateStr,
+            rankLabel: rankMeta.label,
+            insights: insights,
+            advice: advice,
+            stats: {
+                validCount: stats.validCount, formalCount: stats.formalCount,
+                anomalyRate: stats.anomalyRate, timeoutCount: stats.timeoutCount,
+                sSpeed: stats.sSpeed, sAcc: stats.sAcc,
+                sSwitch: stats.sSwitch, sInhib: stats.sInhib, sCv: stats.sCv,
+                reliable: stats.reliable, sampleOK: stats.sampleOK,
+                maxStreak: stats.maxStreak, maxErrStreak: stats.maxErrStreak,
+                recRate: stats.recRate, focusDrop: stats.focusDrop,
+                score: stats.score, peakMultiplier: stats.peakMultiplier,
+                accuracy: stats.accuracy, medianRt: stats.medianRt,
+                impulse: stats.impulse, impulseCount: stats.impulseCount,
+                fatigueDrop: stats.fatigueDrop
+            }
         });
+        delete reportToSave.shareImageDataUrl;
         localStorage.setItem('float_last_report', JSON.stringify(reportToSave));
     } catch (e) {
         console.warn('save report failed:', e);
     }
 
-    showScreen('gameOverScreen');
+    // 结算与报告同版式：直接渲染完整评测报告并进入报告页（无独立精简版）
+    showReport();
+    showScreen('reportScreen');
     ensureShareButton();
+}
+
+// ── 历史存储与趋势（无数据库 → 个人纵向常模） ─────────────────────────────
+function loadHistory() {
+    try {
+        const h = JSON.parse(localStorage.getItem('float_test_history_v2') || '[]');
+        return Array.isArray(h) ? h : [];
+    } catch (e) { return []; }
+}
+
+function saveHistoryEntry(stats, rank, dateStr) {
+    try {
+        const hist = loadHistory();
+        hist.unshift({
+            t: Date.now(), date: dateStr,
+            index: stats.index, rank: rank,
+            medianRt: stats.medianRt, accuracy: stats.accuracy,
+            switchCost: stats.switchCost, cv: stats.cv,
+            validCount: stats.validCount
+        });
+        if (hist.length > 30) hist.length = 30;
+        localStorage.setItem('float_test_history_v2', JSON.stringify(hist));
+        return hist;
+    } catch (e) { return loadHistory(); }
 }
 
 // ── 我的反应力报告（首页入口 + 详情页） ───────────────────────────────────
@@ -1064,7 +1633,7 @@ function prepareSharePayload(data) {
     try {
         if (!data.shareImageDataUrl) {
             const c = renderShareCard(data);
-            data.shareImageDataUrl = c.toDataURL('image/png');
+            data.shareImageDataUrl = c.toDataURL('image/jpeg', 0.85);
         }
     } catch (e) {
         console.warn('prepare share payload failed:', e);
@@ -1075,6 +1644,271 @@ function prepareSharePayload(data) {
 // 首页：报告按钮一直显示，无需控制显隐
 function renderReportEntry() {
     // 按钮默认显示，无需额外操作
+}
+
+// 渲染五维能力明细（专业报告页）：手速 / 准头 / 切换 / 抗扰 / 稳定，
+// 每行 = 维度名 + 得分条 + 得分 + 原始值说明；维度与结算页 3 卡不同，更完整更专业
+
+// 维度原始值说明（1 行人话，基于本次实测；专业页与结算页措辞互补）
+function buildDimNote(key, data) {
+    const st = data.stats || {};
+    switch (key) {
+        case 'speed': {
+            const s = data.speedValue || '';
+            const txt = pickFromInsight(data, 'speed', /反应很快|反应不错|反应一般|反应偏慢/);
+            if (s === '—') return '数据不足';
+            return '中位 ' + s + (txt ? ' · ' + txt : '');
+        }
+        case 'accuracy': {
+            const v = data.accuracyValue || '';
+            const txt = pickFromInsight(data, 'accuracy', /发挥很稳|整体稳定|容易看错规则/);
+            return v !== '—' && txt ? '答对率 ' + v + ' · ' + txt : '数据不足';
+        }
+        case 'switch': {
+            const v = data.switchValue || '';
+            const txt = pickFromInsight(data, 'switch', /几乎不拖慢你|稍慢，属正常|可专项练|建议先放慢/);
+            return v !== '—' && txt ? '切换耗时 ' + v + ' · ' + txt : '数据不足';
+        }
+        case 'inhib': {
+            const v = data.inhibValue || '—';
+            if (v === '—') return '数据不足';
+            const cost = parseInt(v, 10) || 0;
+            const txt = cost < 80 ? '抗干扰好，几乎不受反向题影响' : (cost < 200 ? '抗干扰正常' : '抗干扰偏弱，易受反向题干扰');
+            return '反向题额外 ' + v + ' · ' + txt;
+        }
+        case 'cv': {
+            const v = data.cvText || '—';
+            if (v === '—') return '数据不足';
+            const cv = parseFloat(v);
+            const txt = cv < 0.25 ? '节奏稳定，发挥一致' : (cv < 0.4 ? '节奏略有起伏，属正常' : '节奏波动较大，稳定性待提升');
+            return '稳定性 CV ' + v + ' · ' + txt;
+        }
+        default:
+            return '';
+    }
+}
+
+// 从对应维度的人话整句中提取短短语（避免专业页与结算页整句重复）
+function pickFromInsight(data, key, regex) {
+    const item = findInsight(data, key);
+    if (!item || !item.text) return '';
+    const m = String(item.text).match(regex);
+    return m ? m[0] : '';
+}
+
+// ── 状态诊断：像体检报告一样给 60 秒表现"下判断" ──
+// 框架来源：速度-准确权衡（Speed-Accuracy Tradeoff）、注意波动（attentional
+// fluctuation）、错误后恢复（post-error recovery）、反应抑制（response
+// inhibition）、心流（flow）。判定全部基于本局实测，无任何人群对比。
+
+// 画像依据（评语下的证据小字，体检报告式，避免技术术语）
+function buildEvidenceText(st, diag) {
+    const parts = [];
+    if (st.validCount > 0 && st.accuracy != null) parts.push('答对率' + Math.round(st.accuracy) + '%');
+    if (st.maxStreak >= 3) parts.push('连对' + st.maxStreak + '题');
+    if (st.recRate != null && st.recRate >= 40) parts.push('错后恢复' + Math.round(st.recRate) + '%');
+    if (st.maxErrStreak >= 3) parts.push('连续失误' + st.maxErrStreak + '题');
+    const text = parts.join(' · ');
+    return text || (diag && diag.main && diag.main.evidenceFallback) || '本次数据完整有效';
+}
+
+function buildDiagnosis(st) {
+    const acc = st.accuracy !== undefined ? st.accuracy : 0;
+    const rt = st.medianRt || 0;
+    const sec = rt > 0 ? (rt / 1000).toFixed(2) : null;
+    const timeoutRate = st.formalCount > 0 ? Math.round((st.timeoutCount || 0) / st.formalCount * 100) : 0;
+    const rec = st.recRate;
+    const errStreak = st.maxErrStreak || 0;
+    const focus = st.focusDrop;
+    const valid = st.validCount || 0;
+
+    // 依次判定（先命中即主导画像）
+    let main = null;
+
+    // 1) 参与度不足 / 状态游离：样本太少或大量超时错失
+    if (valid < 15) {
+        main = { key: 'low', name: '待机型', title: '状态待机 · 实力加载中', color: '#94a3b8',
+            verdict: '这次有效作答较少，还不足以完整展现你的真实水平。',
+            evidence: '有效' + valid + '题·中断' + st.anomalyRate + '%' };
+    } else if (timeoutRate >= 20) {
+        main = { key: 'miss', name: '临门型', title: '看得很准 · 及时出手', color: '#94a3b8',
+            verdict: '不少题目判断都很准确，偶尔犹豫会错过最佳出手时机。',
+            evidence: '超时' + (st.timeoutCount || 0) + '题·占' + timeoutRate + '%' };
+    }
+    // 2) 随机作答：正确率过低
+    else if (acc < 55) {
+        main = { key: 'random', name: '热身型', title: '慢慢进入状态 · 后劲更足', color: '#fbbf24',
+            verdict: '这一局还没完全打开状态，真实水平还没有充分发挥出来。',
+            evidence: '答对率' + acc + '%·' + (sec || '—') + '秒/题' };
+    }
+    // 3) 冲动抢答：错得又快又急
+    else if (st.impulse && acc < 88) {
+        main = { key: 'impulse', name: '抢先型', title: '敢抢敢答 · 反应够快', color: '#fb923c',
+            verdict: '出手非常果断，速度是你的优势，有时也会快了一步。',
+            evidence: '答对率' + acc + '%·' + (sec || '—') + '秒/题' };
+    }
+    // 4) 快准兼备
+    else if (acc >= 90 && rt > 0 && rt <= 600) {
+        main = { key: 'swift', name: '闪电型', title: '眼快手快 · 出手如闪电', color: '#38bdf8',
+            verdict: '反应又快又准，这一局状态拉满，发挥很亮眼！',
+            evidence: sec + '秒/题·答对率' + acc + '%' };
+    }
+    // 5) 稳健谨慎：慢而准（速度-准确权衡的"准确优先"端）
+    else if (acc >= 90 && rt > 600) {
+        main = { key: 'steady', name: '稳王型', title: '稳稳出手 · 实力不慌不忙', color: '#34d399',
+            verdict: '这一局又稳又准，节奏保持得很好，发挥相当扎实！',
+            evidence: sec + '秒/题·答对率' + acc + '%' };
+    }
+    // 7) 迟缓型：整体偏慢且一般（先于弹性型，避免被波动画像抢占）
+    else if (rt > 800) {
+        main = { key: 'slow', name: '蓄力型', title: '判断很稳 · 蓄力加速', color: '#94a3b8',
+            verdict: '判断比较稳，出手速度还有空间，整体发挥偏向稳中求准。',
+            evidence: sec + '秒/题·答对率' + acc + '%' };
+    }
+    // 6) 波动起伏但能自我修复
+    else if (acc >= 70 && rec !== null && rec >= 60) {
+        main = { key: 'wavy', name: '回弹型', title: '跌宕起伏 · 自我修复', color: '#a78bfa',
+            verdict: '这一局有快有慢，但失误后总能很快找回状态，恢复力是你的优势。',
+            evidence: '答对率' + acc + '%·' + (sec || '—') + '秒/题' };
+    }
+    // 7) 焦虑失焦：连错且难以恢复
+    else if (rec !== null && rec < 60 || errStreak >= 3) {
+        main = { key: 'anxious', name: '节奏型', title: '找到节奏 · 发挥更稳', color: '#f87171',
+            verdict: '这一局状态有些起伏，连续失误后容易影响后面的节奏。',
+            evidence: '答对率' + acc + '%·' + (sec || '—') + '秒/题' };
+    }
+    // 兜底：正常发挥
+    else {
+        main = { key: 'normal', name: '连击型', title: '全程在线 · 稳定高分', color: '#38bdf8',
+            verdict: '整体发挥很均衡，没有明显短板，是很扎实的一局。',
+            evidence: '平均 ' + (sec || '—') + ' 秒/题 · 答对率 ' + acc + '%' };
+    }
+    return { main: main };
+}
+
+// 渲染报告页"状态诊断"卡（体检报告口吻，位于环区之后、能力明细之前）
+function renderDiagnosis(cardEl, data) {
+    if (!cardEl) return;
+    const st = data.stats || {};
+    if (!st.validCount) { cardEl.style.display = 'none'; return; }
+    const diag = buildDiagnosis(st);
+    cardEl.style.display = '';
+    cardEl.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'diag-card';
+    // 画像区：名 + 小标题（圆环前）；评语与游戏成绩移到圆环图示后（与分享图同序）
+    let html = '<div class="diag-name" style="color:' + diag.main.color + '">' + diag.main.name + '</div>' +
+        '<div class="diag-sub">' + diag.main.title + '</div>';
+    wrap.innerHTML = html;
+    cardEl.appendChild(wrap);
+
+    const bodyEl = document.getElementById('reportDiagBody');
+    if (bodyEl) {
+        bodyEl.innerHTML = '';
+        const bwrap = document.createElement('div');
+        bwrap.className = 'diag-card diag-card-body';
+        let bhtml = '<p class="diag-verdict">' + diag.main.verdict + '</p>' +
+            '<p class="diag-evidence">游戏成绩：' + buildEvidenceText(st, diag) + '</p>';
+        bwrap.innerHTML = bhtml;
+        bodyEl.appendChild(bwrap);
+    }
+}
+
+// 每题状态分：答对按 RT 相对中位（快=高分，慢=降分，保底 55）；
+// 答错=低谷（25 起，连错逐级加深）；超时/误触=最低（10 起）
+// ── 60 秒过程剖析：专注力情绪曲线 + 4 项深挖指标（全为本局实测） ──
+function buildSeqState(formal, medianRt) {
+    let errRun = 0;
+    return formal.map(function (r) {
+        if (r.correct === true) {
+            errRun = 0;
+            const slow = Math.max(0, (r.rt || 0) - medianRt);
+            return Math.max(55, Math.round(100 - slow / 12));
+        }
+        errRun++;
+        if (r.anomalous) return Math.max(1, 10 - (errRun - 1) * 3);
+        return Math.max(1, 25 - (errRun - 1) * 8);
+    });
+}
+
+// 60 秒趋势图：X=60 秒时间轴，Y=每题答题用时（0~1.5s 上限），绿点=答对、红点=答错、灰点=超时/误触
+// 一眼看懂：点越高越慢，点越低越快；绿多红少就是好状态
+function renderFocusCurve(container, marks, rts) {
+    if (!container || !Array.isArray(marks) || marks.length < 2) return;
+    container.innerHTML = '';
+    const W = 300, H = 96, padL = 36, padR = 10, padT = 20, padB = 20;
+    const n = marks.length;
+    const xOf = function (i) { return Math.round((padL + i / Math.max(1, n - 1) * (W - padL - padR)) * 10) / 10; };
+    const xSec = function (sec) { return Math.round((padL + sec / 60 * (W - padL - padR)) * 10) / 10; };
+    const yOf = function (sec) { return Math.round((padT + (1.5 - sec) / 1.5 * (H - padT - padB)) * 10) / 10; };
+
+    let svg = '<svg class="focus-curve" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">';
+    // 顶部 1.5s 上限参考线（淡实线）+ 左侧 Y 轴刻度（用时）
+    svg += '<line class="fc-maxline" x1="' + padL + '" y1="' + padT + '" x2="' + (W - padR) + '" y2="' + padT + '"/>';
+    svg += '<text class="fc-axis" x="' + 2 + '" y="' + 12 + '" text-anchor="start">用时</text>';
+    [1.5, 1.0, 0.5].forEach(function (sec) {
+        svg += '<text class="fc-axis" x="' + (padL - 5) + '" y="' + (yOf(sec) + 3) + '" text-anchor="end">' + sec + '</text>';
+    });
+    // 数据点：每题（绿=对/红=错/灰=超时误触），y=用时
+    marks.forEach(function (m, i) {
+        const sec = rts && rts[i] !== undefined ? Math.min(1.5, rts[i]) : 0.8;
+        const cls = m === 0 ? 'err' : (m === -1 ? 'anom' : 'ok');
+        svg += '<circle class="fc-dot ' + cls + '" cx="' + xOf(i) + '" cy="' + yOf(sec) + '" r="2.4"/>';
+    });
+    // 右上角图例：文字在前、色点在后，组间留间距（答对 / 答错 / 超时）
+    const leg = [{ t: '答对', c: 'ok' }, { t: '答错', c: 'err' }, { t: '超时', c: 'anom' }];
+    let lx = W - padR;
+    for (let k = 0; k < leg.length; k++) {
+        const tw = leg[k].t.length * 8;
+        const w = tw + 18;
+        lx -= w;
+        svg += '<text class="fc-legendtext" x="' + lx + '" y="' + 12 + '" text-anchor="start">' + leg[k].t + '</text>';
+        svg += '<circle class="fc-dot ' + leg[k].c + '" cx="' + (lx + tw + 6) + '" cy="' + 10 + '" r="2.2"/>';
+    }
+    // 底部时间轴：轴线 + 5 刻度 + 标签（0s/15s/30s/45s/60s）
+    const axisY = H - padB + 2;
+    svg += '<line class="fc-axisline" x1="' + padL + '" y1="' + axisY + '" x2="' + (W - padR) + '" y2="' + axisY + '"/>';
+    [0, 15, 30, 45, 60].forEach(function (sec) {
+        const tx = xSec(sec);
+        svg += '<line class="fc-tick" x1="' + tx + '" y1="' + axisY + '" x2="' + tx + '" y2="' + (axisY + 4) + '"/>';
+        svg += '<text class="fc-axis" x="' + tx + '" y="' + (H - 3) + '" text-anchor="middle">' + sec + 's</text>';
+    });
+    svg += '</svg>';
+    container.innerHTML = svg;
+}
+
+// 过程指标行（4 项：最长连对 / 错后恢复 / 连续失误 / 专注保持，另附最高倍率）
+
+// 渲染专业报告页"60 秒过程剖析"板块；旧数据无过程字段时返回 false 供调用方隐藏
+function renderReportProcess(curveEl, data) {
+    const st = data.stats || {};
+    const hasState = Array.isArray(data.seqState) && data.seqState.length >= 2;
+    const hasSeq = Array.isArray(data.seq) && data.seq.length >= 2;
+    if (!hasState && !(st.maxStreak > 0)) return false;
+    if (curveEl && hasState && hasSeq) {
+        // 新存档直接用每题用时；旧存档无 seqRt 时按状态分反推（答对由状态分还原，答错取中位，异常取上限）
+        let rts = data.seqRt;
+        if (!rts || rts.length !== data.seq.length) {
+            rts = data.seq.map(function (m, i) {
+                if (m === 1) {
+                    const slow = Math.max(0, (100 - data.seqState[i]) * 12);
+                    return Math.min(1.5, ((st.medianRt || 500) + slow) / 1000);
+                }
+                if (m === -1) return 1.5;
+                return Math.min(1.5, (st.medianRt || 500) / 1000);
+            });
+        }
+        renderFocusCurve(curveEl, data.seq, rts);
+    }
+    return true;
+}
+
+function findInsight(data, key) {
+    const list = Array.isArray(data.insights) ? data.insights : [];
+    for (let i = 0; i < list.length; i++) {
+        if (list[i] && list[i].key === key) return list[i];
+    }
+    return null;
 }
 
 // 显示报告详情页（从 localStorage 读取最近一次完整报告）
@@ -1099,32 +1933,56 @@ function showReport() {
     } catch (e) { /* 写回失败不影响展示 */ }
     if (reportHint) reportHint.style.display = 'none';
 
-    // 预渲染分享图并缓存到内存，点击分享时零准备、一次触发 postNote
+    // 预渲染分享图并缓存到内存（不落盘），点击分享时零准备
     cachedReportShare = prepareSharePayload(data);
+    // 预热落盘：把分享图先写入临时文件，点击分享时 postNote 可同步发出（解决首次点击被吞）
+    prewarmShareImage(cachedReportShare);
 
-    reportDate.innerText = data.date || '最近测试';
-    const reportRank = data.rankLetter || data.rank || 'A';
-    reportRankLetter.innerText = reportRank;
-    applyRankHeroClass(reportRankHero, reportRank);
-    reportRankTitle.innerText = data.rankTitle || '';
-    reportRankTag.innerText = data.rankTag || '';
-    reportInterpretText.innerText = data.interpretText || '';
+    // ── 结论区：画像 + 评语 + 依据（体检报告式，替代旧等级横幅） ──
+    if (reportDate) reportDate.innerText = data.date || '最近测试';
+    if (reportDiagnosis) renderDiagnosis(reportDiagnosis, data);
 
-    reportSpeedVal.innerText = data.speedValue || (data.avgRt + 'ms');
-    reportSpeedEval.innerText = data.speedEval || '';
-    reportAccuracyVal.innerText = data.accuracyValue || (data.accuracy + '%');
-    reportAccuracyEval.innerText = data.accuracyEval || '';
-    reportSwitchVal.innerText = data.switchValue || ('+' + data.switchCost + 'ms');
-    reportSwitchEval.innerText = data.switchEval || '';
-    reportFocusVal.innerText = data.focusValue || (data.total + '题');
-    reportFocusEval.innerText = data.focusEval || '';
+    // ── 五环仪表（手速/正确/切换/抗扰/稳定） + 中心总分 ──
+    const st5 = (data.stats || {});
+    setIndexRings({ outer: reportRingOuter, mid: reportRingMid, inner: reportRingInner, a: reportRingA, b: reportRingB }, {
+        sSpeed: st5.sSpeed, sAcc: st5.sAcc, sSwitch: st5.sSwitch, sInhib: st5.sInhib, sCv: st5.sCv
+    });
+    if (reportIndexValue) reportIndexValue.innerText = data.index !== undefined ? data.index : '—';
 
-    // 得分允许为 0（合法值要正常显示）；倍率/最快反应为 0 属异常才显示占位符
-    reportSubScore.innerText = (typeof data.score === 'number' && data.score >= 0) ? data.score.toLocaleString() : '—';
-    reportSubPeak.innerText = (typeof data.peakMultiplier === 'number' && data.peakMultiplier > 0) ? data.peakMultiplier + 'x' : '—';
-    reportSubFastest.innerText = (typeof data.fastestRt === 'number' && data.fastestRt > 0) ? data.fastestRt + 'ms' : '—';
+    // ── 60 秒状态趋势（专注力情绪曲线；旧数据无字段时隐藏） ──
+    const hasProcess = renderReportProcess(reportFocusCurve, data);
+    if (reportProcessLabel) reportProcessLabel.style.display = hasProcess ? '' : 'none';
+    if (reportTotalLabel) {
+        const st = data.stats || {};
+        const total = st.formalCount || st.validCount || 0;
+        let t = '';
+        if (total > 0 && st.medianRt) t = '共挑战 ' + total + ' 题・平均 ' + (st.medianRt / 1000).toFixed(2) + ' 秒/题';
+        else if (total > 0) t = '共挑战 ' + total + ' 题';
+        reportTotalLabel.innerText = t;
+    }
+    if (reportProcess) reportProcess.style.display = hasProcess ? '' : 'none';
 
-    reportTipContent.innerText = data.tipContent || '';
+    // ── 数据有效性（正常时不显示，异常时才人话提示） ──
+    if (reportValidity) {
+        const st = data.stats || {};
+        if (st.reliable) {
+            reportValidity.textContent = '';
+            reportValidity.style.display = 'none';
+        } else {
+            const txt = (st.validCount || 0) < 20
+                ? '这次答题中断较多，结果仅供参考，建议重新测一次'
+                : '这次测试受干扰较多，结果仅供参考';
+            reportValidity.textContent = txt;
+            reportValidity.className = 'validity-note warn';
+            reportValidity.style.display = '';
+        }
+    }
+
+    // ── 建议 ──
+    if (reportTipContent) reportTipContent.innerText = data.advice || data.tipContent || '';
+
+    // ── 迷你趋势（整合在圆环区下方，5 个分点） ──
+    if (reportMiniTrend) renderMiniTrend(reportMiniTrend, loadHistory());
 
     showScreen('reportScreen');
 }
@@ -1391,30 +2249,59 @@ function handleShare(btn, snapshot) {
         settle();
         return;
     }
-    // 超时兜底：容器弹出发布页后可能不返回 JS（Promise 挂起），6s 后强制恢复按钮避免卡死
+    // 超时兜底：容器弹出发布页后可能不返回 JS（Promise 挂起）。
+    // 2.5s 内未确认成功即恢复按钮，避免用户在发布页弹出前盲目连点；
+    // 若首次调用确实被吞，2.5s 后按钮恢复可再点（此时桥已预热、filePath 已就绪，成功率高）
     setTimeout(() => {
         if (btn.dataset.sharing === '1') settle();
-    }, 6000);
+    }, 2500);
 }
 
 // 通用分享函数：使用已预渲染的分享图，直接同步调用小红书 postNote
-// 若首次调用被容器吞掉（fail），自动补一次，把「点两次」变为「点一次 + 自动补」
+// 图片地址在点击前已就绪（预热 filePath 优先，否则 dataURL），点击瞬间同步发出 postNote，
+// 不等待任何异步写入，保持手势上下文完整（避免容器吞掉首次调用）
+// 若首次调用被容器吞掉（Promise 挂起不 resolve 不 reject）或 reject，
+// 600ms 内自动补一次（此时 filePath 大概率已就绪），把「点两次」变为「点一次 + 自动补」
 async function shareReport(snapshot, _retried) {
     const miniTool = window.xhs && window.xhs.miniTool;
     if (!snapshot || !miniTool || !snapshot.shareImageDataUrl) return;
+    const imageUrl = snapshot.shareImagePath || snapshot.shareImageDataUrl;
+    // 人话化数值：反应速度用秒，不用毫秒
+    const rtMs = snapshot.avgRt != null ? snapshot.avgRt : snapshot.speedValue;
+    const sec = (rtMs != null && !isNaN(rtMs)) ? (Number(rtMs) / 1000).toFixed(2) : '—';
+    const acc = snapshot.accuracy != null ? snapshot.accuracy : snapshot.accuracyValue;
+    // 话题标签（最多 10 个）：正文用 "#名称[话题]#" 序列化格式还原真实话题（蓝字），
+    // tags 字段传不带 # 的话题名（空格分隔），走平台话题联想选中
+    const noteTags = ['反应力测试', '反应力训练', '反应力', '专注力', '脑力挑战', '手速挑战', '小游戏', '趣味测试', '挑战自己', '来测一测'];
+    const tagMarkup = noteTags.map(t => '#' + t + '[话题]#').join(' ');
+    const payload = {
+        title: '飘 · 60秒测测你的反应力',
+        content:
+            '60秒反应力测评完成！\n' +
+            ((snapshot.diagName || snapshot.rankLabel || '') + (snapshot.diagSub ? ' · ' + snapshot.diagSub : '')) + '\n' +
+            (snapshot.diagVerdict || '') + '\n' +
+            `综合得分：${(snapshot.index != null ? snapshot.index : '—')}/100\n` +
+            `平均 ${sec} 秒/题｜答对率 ${(acc != null ? acc : '—')}%\n` +
+            '点击下方小红书小工具：飘，测一下你的反应力\n' +
+            tagMarkup,
+        pageType: 'photo_publish',
+        mediaInfo: { image_resources: [{ url: imageUrl }] },
+        tags: noteTags.join(' ')
+    };
+    // 挂起兜底：容器吞掉首次 postNote 时 Promise 既不 resolve 也不 reject，
+    // 600ms 后视为被吞，自动补发一次（补发时 filePath 大概率已就绪，成功率高）
+    let swallowed = false;
+    const swallowTimer = setTimeout(function () {
+        swallowed = true;
+        if (!_retried) {
+            shareReport(snapshot, true).catch(function () {});
+        }
+    }, 600);
     try {
-        await miniTool.postNote({
-            title: '飘 · 60秒测测你的反应力',
-            content:
-                '60秒挑战完成！来看看我的反应力报告\n' +
-                (snapshot.slogan || '') + '\n' +
-                `反应力等级：${(snapshot.rank != null ? snapshot.rank : snapshot.rankLetter) || ''}｜反应速度：${(snapshot.avgRt != null ? snapshot.avgRt : snapshot.speedValue) || ''}\n` +
-                `判断准确度：${(snapshot.accuracy != null ? snapshot.accuracy : snapshot.accuracyValue) || ''}%｜切换灵活性：${snapshot.switchEval || ''}\n` +
-                '点击下方小红书小工具：飘， 测一下你的反应力',
-            pageType: 'photo_publish',
-            mediaInfo: { image_resources: [{ url: snapshot.shareImageDataUrl }] }
-        });
+        await miniTool.postNote(payload);
+        clearTimeout(swallowTimer);
     } catch (e) {
+        clearTimeout(swallowTimer);
         console.warn('share report failed:', e);
         // 首次失败（常见于容器桥首次调用被吞）后自动补一次
         if (!_retried) {
@@ -1422,6 +2309,41 @@ async function shareReport(snapshot, _retried) {
             return shareReport(snapshot, true);
         }
     }
+}
+
+// 预热 JSBridge 通道：容器桥首次调用存在初始化延迟，首次 postNote 可能被吞。
+// 用无副作用的只读 API getLaunchOptions 在页面加载/开局时提前建立通道；
+// 桥未注入或该方法不存在时静默跳过，不影响任何流程。
+function warmupBridge() {
+    try {
+        const miniTool = window.xhs && window.xhs.miniTool;
+        if (!miniTool || typeof miniTool.getLaunchOptions !== 'function') return;
+        const p = miniTool.getLaunchOptions({});
+        if (p && typeof p.then === 'function') {
+            p.then(function () {}, function () {});
+        }
+    } catch (e) { /* 预热失败不影响主流程 */ }
+}
+
+// 预热分享图落盘：进入报告页即后台把分享图写入临时文件并缓存 filePath，
+// 点击分享时 postNote 无需等待异步写入，可同步发出（避免容器吞掉首次手势）
+function prewarmShareImage(snapshot) {
+    const miniTool = window.xhs && window.xhs.miniTool;
+    if (!snapshot || !snapshot.shareImageDataUrl || snapshot.shareImagePath) return;
+    if (!miniTool || typeof miniTool.writeTempFile !== 'function') return;
+    let p = null;
+    try {
+        p = miniTool.writeTempFile({ data: snapshot.shareImageDataUrl });
+    } catch (e) {
+        return; // 桥异常：点击分享时回退到「点击时写入 + 自动补一次」
+    }
+    if (!p || typeof p.then !== 'function') return; // 低版本桥可能同步返回
+    p.then(function (temp) {
+        if (temp && temp.filePath) snapshot.shareImagePath = temp.filePath;
+    })
+    .catch(function () {
+        // 预热失败不阻塞：点击分享时回退到「点击时写入 + 自动补一次」
+    });
 }
 
 // 分享战绩：渲染战绩卡片 → postNote（data:uri 直接作为图片资源）
@@ -1451,7 +2373,9 @@ const SHARE_ICON_PATHS = {
 const SHARE_RANK_COLORS = {
     S: { ringA: '#fde68a', ringB: '#f59e0b', glow: 'rgba(251,191,36,0.55)', tag: '#fbbf24' },
     A: { ringA: '#86efac', ringB: '#10b981', glow: 'rgba(16,185,129,0.50)', tag: '#6ee7b7' },
-    B: { ringA: '#93c5fd', ringB: '#3b82f6', glow: 'rgba(59,130,246,0.45)', tag: '#93c5fd' }
+    B: { ringA: '#93c5fd', ringB: '#3b82f6', glow: 'rgba(59,130,246,0.45)', tag: '#93c5fd' },
+    C: { ringA: '#fca5a5', ringB: '#ef4444', glow: 'rgba(239,68,68,0.45)', tag: '#f87171' },
+    D: { ringA: '#cbd5e1', ringB: '#64748b', glow: 'rgba(100,116,139,0.45)', tag: '#94a3b8' }
 };
 
 const SHARE_ABILITY_META = [
@@ -1499,13 +2423,36 @@ function drawRoundRect(ctx, x, y, w, h, r) {
     ctx.closePath();
 }
 
+// 分享卡文本换行：按测量宽度逐字切行，最多 maxLines 行，末行超宽以省略号截断
+function wrapShareText(ctx, text, maxWidth, maxLines) {
+    const chars = String(text || '').split('');
+    const lines = [];
+    let line = '';
+    for (const ch of chars) {
+        if (ctx.measureText(line + ch).width > maxWidth) {
+            lines.push(line);
+            line = ch;
+            if (lines.length >= maxLines) break;
+        } else {
+            line += ch;
+        }
+    }
+    if (lines.length < maxLines && line) lines.push(line);
+    if (lines.length && ctx.measureText(lines[lines.length - 1] + '…').width > maxWidth) {
+        let last = lines[lines.length - 1];
+        while (last && ctx.measureText(last + '…').width > maxWidth) last = last.slice(0, -1);
+        lines[lines.length - 1] = last + '…';
+    }
+    return lines;
+}
+
 function renderShareCard(snapshot) {
     const canvas = document.createElement('canvas');
     const CX = 360;
     canvas.width = 720;
-    canvas.height = 1700; // 先用足量高度绘制，最终按实际内容裁剪
+    canvas.height = 1700;
     const ctx = canvas.getContext('2d');
-    const rc = SHARE_RANK_COLORS[snapshot.rank] || SHARE_RANK_COLORS.A;
+    const diagColor = snapshot.diagColor || '#38bdf8';
 
     // 深海渐变背景
     const bgGrad = ctx.createRadialGradient(360, 380, 60, 360, 700, 950);
@@ -1530,7 +2477,7 @@ function renderShareCard(snapshot) {
 
     ctx.textAlign = 'center';
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 32px -apple-system, "PingFang SC", sans-serif';
+    ctx.font = 'bold 22px -apple-system, "PingFang SC", sans-serif';
     ctx.fillText('飘 · 60秒测测你的反应力', 360, 262);
 
     ctx.strokeStyle = 'rgba(255,255,255,0.18)';
@@ -1540,181 +2487,106 @@ function renderShareCard(snapshot) {
     ctx.lineTo(510, 298);
     ctx.stroke();
 
-    ctx.font = '500 22px -apple-system, "PingFang SC", sans-serif';
-    ctx.fillStyle = '#94a3b8';
-    ctx.fillText('我的反应力报告', 360, 338);
+    // ── 画像区：名 + 小标题（评语与游戏成绩移到图例下方）──
+    const diagName = snapshot.diagName || '反应力测评';
+    const diagSub = snapshot.diagSub || '';
+    const diagVerdict = snapshot.diagVerdict || '';
+    // 分享卡精简成绩：只留最直观的 3 项（陌生人可读）
+    const evParts = snapshot.diagEvidence ? String(snapshot.diagEvidence).split('·').map(s => s.trim()).filter(Boolean).slice(0, 3) : [];
+    const diagEvidence = evParts.length ? '游戏成绩：' + evParts.join(' · ') : '';
 
-    // ── 等级徽章：整张海报的视觉焦点，与报告页 rank-badge 完全同构 ──
-    const badgeCY = 452;
-    const ringOuterR = 78;
-    const ringInnerR = 69;
+    ctx.fillStyle = 'rgba(148,163,184,0.85)';
+    ctx.font = '500 12px -apple-system, "PingFang SC", sans-serif';
+    ctx.fillText('反应力类型', CX, 322);
 
-    ctx.save();
-    ctx.shadowColor = rc.glow;
-    ctx.shadowBlur = 55;
-    ctx.beginPath();
-    ctx.arc(CX, badgeCY, ringInnerR, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.02)';
-    ctx.fill();
-    ctx.restore();
+    ctx.fillStyle = diagColor;
+    ctx.font = 'bold 32px -apple-system, "PingFang SC", sans-serif';
+    ctx.fillText(diagName, CX, 350);
 
-    // 渐变圆环（描边质感）
-    ctx.beginPath();
-    ctx.arc(CX, badgeCY, ringOuterR, 0, Math.PI * 2);
-    ctx.arc(CX, badgeCY, ringInnerR, 0, Math.PI * 2, true);
-    const ringGrad = ctx.createLinearGradient(CX - ringOuterR, badgeCY - ringOuterR, CX + ringOuterR, badgeCY + ringOuterR);
-    ringGrad.addColorStop(0, rc.ringA);
-    ringGrad.addColorStop(1, rc.ringB);
-    ctx.fillStyle = ringGrad;
-    ctx.fill();
+    if (diagSub) {
+        ctx.fillStyle = 'rgba(226,232,240,0.75)';
+        ctx.font = '600 19px -apple-system, "PingFang SC", sans-serif';
+        ctx.fillText(diagSub, CX, 388);
+    }
 
-    // 徽章内圆
-    ctx.beginPath();
-    ctx.arc(CX, badgeCY, ringInnerR, 0, Math.PI * 2);
-    const innerGrad = ctx.createRadialGradient(CX - 24, badgeCY - 24, 4, CX, badgeCY, ringInnerR);
-    innerGrad.addColorStop(0, 'rgba(255,255,255,0.18)');
-    innerGrad.addColorStop(1, 'rgba(255,255,255,0.02)');
-    ctx.fillStyle = innerGrad;
-    ctx.fill();
-
-    // 等级字母
-    ctx.font = '900 74px -apple-system, "PingFang SC", sans-serif';
-    ctx.fillStyle = '#ffffff';
-    ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.45)';
-    ctx.shadowBlur = 12;
-    ctx.fillText(snapshot.rank || 'A', CX, badgeCY + 3);
-    ctx.restore();
-
-    // 等级标题 & 标签（标题左侧配等级线描图标：S=奖牌 A=对勾 B=上升）
-    const rankTitleText = snapshot.rankTitle || '';
-    const titleY = badgeCY + ringOuterR + 42;
-    ctx.font = 'bold 30px -apple-system, "PingFang SC", sans-serif';
-    const titleW = ctx.measureText(rankTitleText).width;
-    const titleIconSize = 22;
-    drawShareLineIcon(ctx, RANK_TITLE_ICON_PATHS[snapshot.rank] || RANK_TITLE_ICON_PATHS.A,
-        CX - titleW / 2 - titleIconSize / 2 - 12, titleY, titleIconSize, rc.tag);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(rankTitleText, CX, titleY);
-
-    ctx.font = '600 20px -apple-system, "PingFang SC", sans-serif';
-    ctx.fillStyle = rc.tag;
-    ctx.fillText(snapshot.rankTag || '', CX, badgeCY + ringOuterR + 70);
-
-    // 个性化解读（句尾配等级色 4 角 sparkle）
-    const interpText = snapshot.interpretText || '';
-    const interpY = badgeCY + ringOuterR + 98;
-    ctx.font = '500 20px -apple-system, "PingFang SC", sans-serif';
-    const interpW = ctx.measureText(interpText).width;
-    const sparkSize = 12;
-    ctx.fillStyle = '#cbd5e1';
-    ctx.fillText(interpText, CX, interpY);
-    drawShareLineIcon(ctx, SHARE_SPARK_PATH, CX + interpW / 2 + sparkSize / 2 + 10, interpY, sparkSize, rc.tag);
-
-    // ── 分区：四维能力（横向信息条，与报告页 ability-card 同构）──
-    const rowX = 100, rowW = 520, rowH = 66, rowGap = 10;
-    let sectionY = badgeCY + ringOuterR + 130;
-
-    ctx.textAlign = 'left';
-    ctx.font = '700 19px -apple-system, "PingFang SC", sans-serif';
-    ctx.fillStyle = 'rgba(203,213,225,0.6)';
-    ctx.fillText('四维能力', rowX, sectionY);
-
-    let rowY = sectionY + 22;
-
-    const abilityValues = {
-        speed: snapshot.speedValue || (snapshot.avgRt + 'ms'),
-        accuracy: snapshot.accuracyValue || (snapshot.accuracy + '%'),
-        switch: snapshot.switchValue || ('+' + snapshot.switchCost + 'ms'),
-        focus: snapshot.focusValue || (snapshot.total + '题')
-    };
-    const abilityEvals = {
-        speed: snapshot.speedEval || '',
-        accuracy: snapshot.accuracyEval || '',
-        switch: snapshot.switchEval || '',
-        focus: snapshot.focusEval || ''
-    };
-
-    SHARE_ABILITY_META.forEach((ab) => {
-        // 行底 + 左侧色条（对应 CSS 的 border-left 强调色）
-        drawRoundRect(ctx, rowX, rowY, rowW, rowH, 16);
-        ctx.fillStyle = 'rgba(255,255,255,0.045)';
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        ctx.save();
-        drawRoundRect(ctx, rowX, rowY, 5, rowH, [16, 0, 0, 16]);
-        ctx.fillStyle = ab.color;
-        ctx.fill();
-        ctx.restore();
-
-        // icon 圆
-        const iconCX = rowX + 48, iconCY = rowY + rowH / 2;
-        ctx.beginPath();
-        ctx.arc(iconCX, iconCY, 23, 0, Math.PI * 2);
-        ctx.fillStyle = ab.color + '2E';
-        ctx.fill();
-        drawShareLineIcon(ctx, ab.path, iconCX, iconCY, 23, ab.color);
-
-        // label + eval
-        ctx.textAlign = 'left';
-        ctx.font = '600 20px -apple-system, "PingFang SC", sans-serif';
-        ctx.fillStyle = '#e2e8f0';
-        ctx.fillText(ab.label, rowX + 86, rowY + rowH / 2 - 12);
-
-        ctx.font = '700 17px -apple-system, "PingFang SC", sans-serif';
-        ctx.fillStyle = ab.color;
-        ctx.fillText(abilityEvals[ab.key], rowX + 86, rowY + rowH / 2 + 15);
-
-        // value
-        ctx.textAlign = 'right';
-        ctx.font = 'bold 27px -apple-system, "PingFang SC", sans-serif';
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText(abilityValues[ab.key], rowX + rowW - 24, rowY + rowH / 2 + 2);
-
-        rowY += rowH + rowGap;
-    });
-
-    // ── 分区：本局小记（无边框统计条，与报告页 sub-data-strip 同构）──
-    sectionY = rowY + 8;
-    ctx.textAlign = 'left';
-    ctx.font = '700 19px -apple-system, "PingFang SC", sans-serif';
-    ctx.fillStyle = 'rgba(203,213,225,0.6)';
-    ctx.fillText('本局小记', rowX, sectionY);
-
-    const subY = sectionY + 42;
-    const subItems = [
-        { val: (snapshot.score || 0).toLocaleString(), key: '本局得分' },
-        { val: (snapshot.peakMultiplier || 1) + 'x', key: '最高倍率' },
-        { val: (snapshot.fastestRt > 0 ? snapshot.fastestRt + 'ms' : '—'), key: '最快反应' }
+    // ── 五环仪表（与报告页同构：手速/正确/切换/抗扰/稳定，中央仅分数）──
+    const ringCY = 606;
+    const ringConf = [
+        { r: 118, w: 15, c: '#38bdf8', v: snapshot.sSpeed },
+        { r: 96,  w: 13, c: '#34d399', v: snapshot.sAcc },
+        { r: 74,  w: 11, c: '#a78bfa', v: snapshot.sSwitch },
+        { r: 54,  w: 9,  c: '#fb923c', v: snapshot.sInhib },
+        { r: 36,  w: 7,  c: '#22d3ee', v: snapshot.sCv }
     ];
-    const subColW = rowW / 3;
-    ctx.textAlign = 'center';
-    subItems.forEach((it, i) => {
-        const colCX = rowX + subColW * i + subColW / 2;
-        ctx.font = 'bold 27px -apple-system, "PingFang SC", sans-serif';
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText(it.val, colCX, subY);
-        ctx.font = '500 17px -apple-system, "PingFang SC", sans-serif';
-        ctx.fillStyle = '#94a3b8';
-        ctx.fillText(it.key, colCX, subY + 28);
-
-        if (i > 0) {
-            ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(rowX + subColW * i, subY - 22);
-            ctx.lineTo(rowX + subColW * i, subY + 38);
-            ctx.stroke();
-        }
+    ringConf.forEach((ring) => {
+        const v = typeof ring.v === 'number' ? Math.max(0, Math.min(100, ring.v)) : (snapshot.index || 80);
+        ctx.beginPath();
+        ctx.arc(CX, ringCY, ring.r, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+        ctx.lineWidth = ring.w;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(CX, ringCY, ring.r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (v / 100));
+        ctx.strokeStyle = ring.c;
+        ctx.lineWidth = ring.w;
+        ctx.lineCap = 'round';
+        ctx.stroke();
     });
 
-    // ── 训练建议 / slogan 色带（与报告页 tip-banner 同构）──
-    const tipY = subY + 48;
-    const tipH = 92;
-    drawRoundRect(ctx, rowX, tipY, rowW, tipH, 18);
+    // 环中央：综合分（环内只留分数）
+    ctx.textAlign = 'center';
+    ctx.font = '900 30px -apple-system, "PingFang SC", sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+    ctx.shadowBlur = 14;
+    ctx.fillText(String(snapshot.index || '—'), CX, ringCY + 6);
+    ctx.restore();
+
+    // 五环图例
+    const legendY = ringCY + 150;
+    const legends = [
+        { label: '手速', c: '#38bdf8' },
+        { label: '正确', c: '#34d399' },
+        { label: '切换', c: '#a78bfa' },
+        { label: '抗扰', c: '#fb923c' },
+        { label: '稳定', c: '#22d3ee' }
+    ];
+    ctx.font = '500 16px -apple-system, "PingFang SC", sans-serif';
+    legends.forEach((lg, i) => {
+        const lx = CX + (i - 2) * 96;
+        ctx.beginPath();
+        ctx.arc(lx - 24, legendY, 8, 0, Math.PI * 2);
+        ctx.fillStyle = lg.c;
+        ctx.fill();
+        ctx.fillStyle = '#cbd5e1';
+        ctx.textAlign = 'left';
+        ctx.fillText(lg.label, lx - 10, legendY);
+    });
+
+    // ── 图例下方：评语（19px，与小标题同字号）+ 游戏成绩 ──
+    ctx.textAlign = 'center';
+    let bodyY = legendY + 46;
+    if (diagVerdict) {
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = '600 19px -apple-system, "PingFang SC", sans-serif';
+        const vLines = wrapShareText(ctx, diagVerdict, 640, 1);
+        vLines.forEach((line, li) => { ctx.fillText(line, CX, bodyY + li * 26); });
+        bodyY += vLines.length * 26;
+    }
+    if (diagEvidence) {
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '500 13px -apple-system, "PingFang SC", sans-serif';
+        const eLines = wrapShareText(ctx, diagEvidence, 640, 1);
+        eLines.forEach((line, li) => { ctx.fillText(line, CX, bodyY + 10 + li * 20); });
+        bodyY += eLines.length * 20 + 10;
+    }
+
+    // ── 给你一个小挑战（与报告页同构）──
+    const tipY = bodyY + 46;
+    const tipH = 104;
+    const tipW = 520, tipX = 100;
+    drawRoundRect(ctx, tipX, tipY, tipW, tipH, 18);
     ctx.fillStyle = 'rgba(16,185,129,0.10)';
     ctx.fill();
     ctx.strokeStyle = 'rgba(16,185,129,0.28)';
@@ -1722,22 +2594,20 @@ function renderShareCard(snapshot) {
     ctx.stroke();
 
     ctx.textAlign = 'center';
-    ctx.font = 'bold 25px -apple-system, "PingFang SC", sans-serif';
-    const sloganText = snapshot.slogan || '';
-    const sloganW = ctx.measureText(sloganText).width;
-    const sloganIconSize = 16;
-    // slogan 左侧配 5 角星线描图标，与色带同色
-    drawShareLineIcon(ctx, SHARE_STAR_PATH, CX - sloganW / 2 - sloganIconSize / 2 - 10, tipY + 32, sloganIconSize, '#6ee7b7');
+    ctx.font = 'bold 19px -apple-system, "PingFang SC", sans-serif';
     ctx.fillStyle = '#6ee7b7';
-    ctx.fillText(sloganText, CX, tipY + 32);
+    ctx.fillText('给你一个小挑战', CX, tipY + 30);
 
-    ctx.font = '500 18px -apple-system, "PingFang SC", sans-serif';
+    ctx.font = '500 16px -apple-system, "PingFang SC", sans-serif';
     ctx.fillStyle = '#cbd5e1';
-    ctx.fillText(snapshot.tipContent || '', CX, tipY + 62);
+    const tipLines = wrapShareText(ctx, snapshot.tipContent || '', 460, 2);
+    tipLines.forEach((line, li) => {
+        ctx.fillText(line, CX, tipY + 62 + li * 24);
+    });
 
     // ── 底部品牌标语 ──
     const footerY = tipY + tipH + 30;
-    ctx.font = '500 17px -apple-system, "PingFang SC", sans-serif';
+    ctx.font = '500 13px -apple-system, "PingFang SC", sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.45)';
     ctx.fillText('绿叶看指向 · 橙叶看移动', CX, footerY);
     const footerSloganText = '测一测，看看你的反应力是什么样';
@@ -1747,26 +2617,21 @@ function renderShareCard(snapshot) {
     drawShareLineIcon(ctx, SHARE_SPARK_PATH, CX + footerW / 2 + footerSparkSize / 2 + 8, footerY + 26, footerSparkSize, 'rgba(255,255,255,0.55)');
 
     // 底部水流装饰线
-    const bottomLineY = footerY + 50;
     ctx.strokeStyle = 'rgba(255,255,255,0.08)';
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(0, bottomLineY);
-    ctx.quadraticCurveTo(180, bottomLineY - 50, 360, bottomLineY);
-    ctx.quadraticCurveTo(540, bottomLineY + 50, 720, bottomLineY);
+    ctx.moveTo(0, footerY + 52);
+    ctx.quadraticCurveTo(180, footerY + 82, 360, footerY + 52);
+    ctx.quadraticCurveTo(540, footerY + 22, 720, footerY + 52);
     ctx.stroke();
 
-    // 按实际内容高度裁剪画布，避免底部留白过多
-    const finalHeight = Math.min(canvas.height, Math.ceil(bottomLineY + 50));
-    if (finalHeight < canvas.height) {
-        const cropped = document.createElement('canvas');
-        cropped.width = canvas.width;
-        cropped.height = finalHeight;
-        cropped.getContext('2d').drawImage(canvas, 0, 0);
-        return cropped;
-    }
-
-    return canvas;
+    // 按实际内容裁剪
+    const finalHeight = footerY + 80;
+    const cropped = document.createElement('canvas');
+    cropped.width = canvas.width;
+    cropped.height = finalHeight;
+    cropped.getContext('2d').drawImage(canvas, 0, 0);
+    return cropped;
 }
 
 function drawLeaf(ctx, cx, cy, w, h, leftColor, rightColor, stemColor, deg) {
@@ -1828,6 +2693,7 @@ document.querySelectorAll('.btn-next-step').forEach(btn => {
 
 // App initialization
 window.addEventListener('load', () => {
+    warmupBridge();
     showScreen('welcomeScreen');
 });
 

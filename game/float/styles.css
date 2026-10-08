@@ -792,6 +792,25 @@ h3 {
     30%, 60%, 90% { transform: translateX(8px); }
 }
 
+/* ---- 最后 5 秒：游戏区纯内发光按秒心跳闪烁（白光、不描边；
+        答错为红色内晕+抖动，白闪与红晕抖动明确区分） ---- */
+.game-board.board-urgency {
+    animation: boardUrgency 1s ease-in-out infinite;
+}
+
+@keyframes boardUrgency {
+    0%, 12% {
+        box-shadow:
+            inset 0 4px 30px rgba(0, 0, 0, 0.25),
+            inset 0 0 60px rgba(255, 255, 255, 0.90);
+    }
+    30%, 100% {
+        box-shadow:
+            inset 0 4px 30px rgba(0, 0, 0, 0.25),
+            inset 0 0 18px rgba(255, 255, 255, 0.18);
+    }
+}
+
 /* ==========================================================================
    MINI-TOOL CONTAINER / CROSS-PLATFORM ADAPTATIONS (offline sandbox)
    ========================================================================== */
@@ -904,7 +923,7 @@ body {
 }
 
 .report-date {
-    font-size: 0.8rem;
+    font-size: 9px;
     color: var(--text-muted);
     margin-top: 3px;
 }
@@ -1223,6 +1242,8 @@ body {
     padding: 9px 8px;
     min-height: 42px;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* 极端窄视口兜底：截字不溢出 */
 }
 
 /* ---- 移动端适配 ---- */
@@ -1593,3 +1614,700 @@ body {
 .supports-flex-gap #reportScreen .btn-group { gap: 10px; }
 .supports-flex-gap #gameOverScreen .btn-group > * + *,
 .supports-flex-gap #reportScreen .btn-group > * + * { margin-left: 0; }
+.supports-flex-gap .ring-legend { gap: 16px; }
+.supports-flex-gap .ring-legend > * + * { margin-left: 0; }
+
+/* ==========================================================================
+   14. 测评报告（人话版 · 正式报告感）：结论区 + 环形指数 + 图标卡片 + 趋势折线
+   ========================================================================== */
+
+/* ---- 节标题：左侧等级色条 ---- */
+.section-label {
+    display: flex;
+    align-items: center;
+    margin: 18px 0 9px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #f1f5f9;
+    letter-spacing: 0.02em;
+}
+.section-label::before {
+    content: "";
+    width: 4px;
+    height: 14px;
+    border-radius: 2px;
+    margin-right: 8px;
+    background: var(--rank-accent, #38bdf8);
+}
+.section-label-sub {
+    margin-left: 8px;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: #64748b;
+}
+
+/* ---- 综合指数：环形仪表 ---- */
+.index-hero {
+    margin: 14px 0 4px;
+    padding: 20px 16px 16px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 18px;
+    text-align: center;
+}
+.index-ring-wrap {
+    position: relative;
+    width: 168px;
+    height: 168px;
+    margin: 0 auto 6px;
+}
+.index-ring { width: 168px; height: 168px; transform: rotate(-90deg); }
+.ring-bg { fill: none; stroke: rgba(255, 255, 255, 0.08); stroke-width: 7; }
+.ring-fg {
+    fill: none;
+    stroke-width: 7;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* 三环（Apple 健身风格）：外环手速 / 中环准头 / 内环切换 */
+.ring-outer { stroke: #38bdf8; stroke-dasharray: 339.3; stroke-dashoffset: 339.3; }
+.ring-mid   { stroke: #34d399; stroke-dasharray: 289.0; stroke-dashoffset: 289.0; }
+.ring-inner { stroke: #a78bfa; stroke-dasharray: 238.8; stroke-dashoffset: 238.8; }
+.ring-a { stroke: #fb923c; stroke-dasharray: 188.5; stroke-dashoffset: 188.5; }
+.ring-b { stroke: #22d3ee; stroke-dasharray: 138.2; stroke-dashoffset: 138.2; }
+.ring-center {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.ring-center b { font-size: 44px; font-weight: 800; color: #ffffff; line-height: 1; letter-spacing: -0.02em; }
+.ring-legend {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin: 2px 0 0;
+}
+.ring-legend > * + * { margin-left: 16px; } /* Chrome 61 基线（flex gap 不可用时的间距） */
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    font-size: 9px;
+    color: #94a3b8;
+}
+.legend-item i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+    flex-shrink: 0;
+}
+.legend-speed i { background: #38bdf8; }
+.legend-acc i { background: #34d399; }
+.legend-switch i { background: #a78bfa; }
+.legend-inhib i { background: #fb923c; }
+.legend-cv i { background: #22d3ee; }
+.index-note { margin: 8px 0 0; font-size: 9px; color: #64748b; }
+
+/* ---- 人话解读：图标卡片 ---- */
+.insight-list {
+    list-style: none;
+    margin: 4px 0 8px;
+    padding: 0;
+}
+.insight-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-left: 3px solid var(--insight-c, var(--rank-accent, #34d399));
+    border-radius: 12px;
+}
+.insight-icon {
+    flex: 0 0 34px;
+    width: 34px;
+    height: 34px;
+    margin-right: 12px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+}
+.insight-icon svg { width: 18px; height: 18px; color: var(--insight-c, #38bdf8); }
+.insight-body { flex: 1; min-width: 0; }
+.insight-tag {
+    display: inline-block;
+    margin-bottom: 2px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--insight-c, #38bdf8);
+}
+.insight-text { margin: 0; font-size: 13.5px; line-height: 1.55; color: #e2e8f0; }
+
+/* ---- 数据有效性：胶囊徽章 ---- */
+.validity-note {
+    display: inline-flex;
+    align-items: center;
+    margin: 2px 0 12px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 9px;
+    line-height: 1.4;
+    background: rgba(148, 163, 184, 0.12);
+    color: #94a3b8;
+}
+.validity-note.ok { background: rgba(52, 211, 153, 0.12); color: #6ee7b7; }
+.validity-note.warn { background: rgba(251, 146, 60, 0.14); color: #fdba74; }
+
+/* ---- 建议横幅：等级色左条 + 渐变底 ---- */
+#gameOverScreen .tip-banner,
+#reportScreen .tip-banner {
+    background: linear-gradient(90deg, rgba(56, 189, 248, 0.10), rgba(255, 255, 255, 0.04));
+    border-left: 3px solid var(--rank-accent, #38bdf8);
+}
+#gameOverScreen .tip-title,
+#reportScreen .tip-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #f1f5f9;
+}
+
+/* ---- 历史趋势：SVG 折线 ---- */
+.trend-row { margin: 6px 0 14px; }
+.trend-wrap {
+    padding: 12px 10px 4px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+}
+.trend-chart { width: 100%; height: auto; display: block; }
+.trend-line {
+    fill: none;
+    stroke: var(--rank-accent, #38bdf8);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.trend-dot { fill: var(--rank-accent, #38bdf8); }
+.trend-dot.last { fill: #ffffff; stroke: var(--rank-accent, #38bdf8); stroke-width: 2.5; }
+.trend-label { font-size: 11px; fill: #e2e8f0; font-weight: 700; }
+.trend-grid { stroke: rgba(255, 255, 255, 0.10); stroke-width: 1; }
+.trend-meta { padding: 7px 4px 9px; font-size: 9px; color: #94a3b8; text-align: center; }
+.trend-empty {
+    display: block;
+    padding: 14px 10px;
+    text-align: center;
+    font-size: 12.5px;
+    color: #94a3b8;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px dashed rgba(255, 255, 255, 0.14);
+    border-radius: 12px;
+}
+
+/* ---- 报告页入场动画 ---- */
+#gameOverScreen.active .index-hero,
+#gameOverScreen.active .insight-item,
+#gameOverScreen.active .tip-banner,
+#gameOverScreen.active .trend-wrap,
+#reportScreen.active .index-hero,
+#reportScreen.active .insight-item,
+#reportScreen.active .tip-banner,
+#reportScreen.active .trend-wrap {
+    animation: reportFadeUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+#gameOverScreen.active .insight-item:nth-child(2) { animation-delay: 0.06s; }
+#gameOverScreen.active .insight-item:nth-child(3) { animation-delay: 0.12s; }
+#gameOverScreen.active .insight-item:nth-child(4) { animation-delay: 0.18s; }
+#gameOverScreen.active .insight-item:nth-child(5) { animation-delay: 0.24s; }
+@keyframes reportFadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- 移动端：报告页紧凑适配 ---- */
+@media (max-width: 480px) {
+    .pro-v { width: 96px; }
+    .pro-s { width: 56px; }
+    .insight-text { font-size: 13px; }
+    .index-ring-wrap { width: 156px; height: 156px; }
+    .index-ring { width: 156px; height: 156px; }
+    .ring-center b { font-size: 38px; }
+}
+
+/* ==========================================================================
+   15. 结算页单屏压缩 + 迷你 5 点趋势（仅作用于 #gameOverScreen，报告页布局不变）
+   ========================================================================== */
+
+/* ---- 迷你趋势（替换原"建议连续测 3 次取稳定值"，位于圆环下方） ---- */
+.mini-trend {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 6px 0 0;
+    padding-top: 7px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.10);
+}
+.mini-trend-title {
+    font-size: 9px;
+    font-weight: 600;
+    color: #64748b;
+    letter-spacing: 0.4px;
+    margin-right: 10px;
+    flex-shrink: 0;
+}
+.mini-trend-svg { width: 200px; height: 50px; display: block; }
+.mini-trend-link { stroke: rgba(125, 211, 252, 0.55); stroke-width: 1.5; }
+.mini-trend-dot { fill: #7dd3fc; }
+.mini-trend-dot.newest { fill: #38bdf8; stroke: #ffffff; stroke-width: 2; }
+.mini-trend-label { font-size: 11px; font-weight: 700; fill: #e0f2fe; }
+.mini-trend-ph { fill: none; stroke: rgba(255, 255, 255, 0.28); stroke-width: 1.5; stroke-dasharray: 3 2; }
+
+/* ---- 结算页上半区压缩：标题 / 等级 / 三环 / 图例 / 解读 / 建议 / 按钮 ---- */
+#gameOverScreen .game-header { margin-bottom: 6px; }
+#gameOverScreen .game-header h2 { font-size: 1.2rem; }
+#gameOverScreen .report-date { margin-top: 2px; }
+#gameOverScreen .rank-hero { padding: 4px 0 2px; margin-bottom: 2px; }
+#gameOverScreen .rank-title { font-size: 1.05rem; margin-bottom: 2px; }
+#gameOverScreen .rank-title-icon { width: 16px; height: 16px; }
+#gameOverScreen .rank-tag { font-size: 0.8rem; }
+#gameOverScreen .index-hero { margin: 6px 0 4px; padding: 12px 12px 10px; }
+#gameOverScreen .index-ring-wrap { width: 128px; height: 128px; margin: 0 auto 2px; }
+#gameOverScreen .index-ring { width: 128px; height: 128px; }
+#gameOverScreen .ring-center b { font-size: 32px; }
+#gameOverScreen .ring-legend { margin: 0; }
+#gameOverScreen .legend-item { font-size: 11px; }
+#gameOverScreen .section-label { margin: 8px 2px 4px; }
+#gameOverScreen .insight-list { margin: 2px 0 6px; }
+#gameOverScreen .insight-item { padding: 8px 12px; margin-bottom: 6px; }
+#gameOverScreen .insight-icon { flex-basis: 30px; width: 30px; height: 30px; margin-right: 10px; }
+#gameOverScreen .insight-icon svg { width: 16px; height: 16px; }
+#gameOverScreen .insight-text { font-size: 13px; }
+#gameOverScreen .tip-banner { padding: 9px 12px; margin: 4px 0 0; }
+#gameOverScreen .tip-title { font-size: 13px; }
+
+#gameOverScreen .btn-group { margin-top: 2px; }
+
+/* ---- "你这次的表现"：3 卡横排（结算页，仅本局数据） ---- */
+.insight-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 2px 0 6px;
+}
+.insight-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 12px;
+    padding: 10px 6px 8px;
+    text-align: center;
+    min-width: 0;
+}
+.ic-head {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--insight-c, #38bdf8);
+    margin-bottom: 6px;
+    letter-spacing: 0.3px;
+}
+.ic-head svg { width: 13px; height: 13px; flex-shrink: 0; margin-right: 5px; } /* Chrome 61 基线（不用 flex gap） */
+.ic-main {
+    font-size: 15px;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1.25;
+    margin-bottom: 3px;
+    letter-spacing: 0.1px;
+    max-width: 100%;
+}
+.ic-sub {
+    font-size: 11px;
+    color: #94a3b8;
+    line-height: 1.3;
+    max-width: 100%;
+}
+.insight-empty {
+    margin: 4px 0 8px;
+    font-size: 12.5px;
+    color: #94a3b8;
+    text-align: center;
+}
+
+/* ---- 单行建议文字（结算页与报告页，无外框） ---- */
+.advice-line {
+    margin: 2px 2px 8px;
+    font-size: 14px;
+    color: #e2e8f0;
+    line-height: 1.5;
+}
+
+/* ---- 五维能力明细（专业报告页） ---- */
+.dim-row { margin-bottom: 10px; }
+.dim-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.dim-name {
+    width: 34px;
+    flex-shrink: 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: #e2e8f0;
+    margin-right: 10px; /* Chrome 61 基线（不用 flex gap） */
+}
+.dim-bar {
+    flex: 1;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+    min-width: 40px;
+}
+.dim-fill { display: block; height: 100%; border-radius: 999px; }
+.dim-score {
+    width: 56px;
+    flex-shrink: 0;
+    text-align: right;
+    font-size: 12px;
+    font-weight: 700;
+    color: #f1f5f9;
+    margin-left: 10px; /* Chrome 61 基线 */
+}
+.dim-note {
+    margin: 5px 0 0 34px;
+    font-size: 11.5px;
+    color: #94a3b8;
+    line-height: 1.4;
+}
+
+/* ---- 报告页单屏压缩：圆环区整合迷你趋势后，一屏完整展示 ---- */
+#reportScreen .game-header { margin-bottom: 6px; }
+#reportScreen .game-header h2 { font-size: 1.15rem; }
+#reportScreen .report-date { margin-top: 2px; }
+#reportScreen .rank-hero { padding: 2px 0 2px; margin-bottom: 2px; }
+#reportScreen .rank-title { font-size: 0.98rem; }
+#reportScreen .rank-title-icon { width: 16px; height: 16px; }
+#reportScreen .rank-tag { font-size: 0.75rem; }
+#reportScreen .index-hero { margin: 2px 0 0; padding: 10px 12px 8px; }
+#reportScreen .index-ring-wrap { width: 112px; height: 112px; margin: 0 auto 1px; }
+#reportScreen .index-ring { width: 112px; height: 112px; }
+#reportScreen .ring-center b { font-size: 28px; }
+#reportScreen .ring-legend { margin: 0; font-size: 9px; }
+#reportScreen .mini-trend { margin: 4px 0 0; padding: 0; }
+#reportScreen .mini-trend-title { font-size: 9px; margin-bottom: 1px; }
+#reportScreen .mini-trend-svg { width: 176px; height: 44px; }
+#reportScreen .section-label { margin: 6px 2px 3px; }
+#reportScreen .dim-row { margin-bottom: 5px; }
+#reportScreen .dim-name { width: 32px; font-size: 12px; }
+#reportScreen .dim-bar { height: 7px; }
+#reportScreen .dim-score { width: 50px; font-size: 11.5px; }
+#reportScreen .dim-note { margin: 3px 0 0 32px; font-size: 11px; }
+#reportScreen .advice-line { margin: 2px 2px 4px; font-size: 13px; }
+#reportScreen .btn-group { margin-top: 4px; }
+
+/* ---- 60 秒过程剖析：专注力情绪曲线 + 深挖指标 ---- */
+.focus-curve-wrap { width: 100%; margin: 2px 0 4px; }
+.focus-curve { display: block; width: 100%; height: auto; }
+.fc-line { fill: none; stroke: #7dd3fc; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+.fc-dot.ok { fill: #34d399; }
+.fc-dot.err { fill: #f87171; }
+.fc-dot.anom { fill: #94a3b8; }
+.fc-axisline { stroke: rgba(255, 255, 255, 0.22); stroke-width: 1; }
+.fc-tick { stroke: rgba(255, 255, 255, 0.22); stroke-width: 1; }
+.fc-axis { font-size: 9px; fill: #64748b; }
+.process-rows { margin: 0 2px; }
+.process-row {
+    display: flex;
+    align-items: baseline;
+    margin-bottom: 3px;
+}
+.process-name {
+    width: 58px;
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: #cbd5e1;
+    margin-right: 8px;
+}
+.process-val {
+    min-width: 54px;
+    font-size: 13px;
+    font-weight: 800;
+    color: #e2e8f0;
+    margin-right: 8px;
+}
+.process-txt {
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+/* ---- 报告页二次压缩：容纳专注力情绪曲线后仍贴近一屏 ---- */
+#reportScreen .game-header { margin-bottom: 4px; }
+#reportScreen .game-header h2 { font-size: 1.05rem; }
+#reportScreen .report-date { font-size: 9px; margin-top: 1px; }
+#reportScreen .rank-hero { padding: 0; margin-bottom: 0; }
+#reportScreen .rank-title { font-size: 0.9rem; }
+#reportScreen .rank-tag { font-size: 0.7rem; }
+#reportScreen .index-hero { padding: 6px 12px 6px; }
+#reportScreen .index-ring-wrap { width: 92px; height: 92px; margin: 0 auto 1px; }
+#reportScreen .index-ring { width: 92px; height: 92px; }
+#reportScreen .ring-center b { font-size: 24px; }
+#reportScreen .mini-trend { margin: 2px 0 0; }
+#reportScreen .mini-trend-title { font-size: 9px; margin-bottom: 0; }
+#reportScreen .mini-trend-svg { width: 160px; height: 40px; }
+#reportScreen .section-label { margin: 4px 2px 2px; font-size: 0.78rem; }
+#reportScreen .dim-row { margin-bottom: 3px; }
+#reportScreen .dim-name { font-size: 11.5px; }
+#reportScreen .dim-bar { height: 6px; }
+#reportScreen .dim-score { font-size: 11px; }
+#reportScreen .dim-note { margin: 2px 0 0 32px; font-size: 10.5px; }
+#reportScreen .advice-line { margin: 1px 2px 3px; font-size: 12.5px; }
+#reportScreen .btn-group { margin-top: 2px; }
+#reportScreen .btn-group .btn { min-height: 36px; padding: 6px 4px; }
+#reportScreen .process-row { margin-bottom: 2px; }
+#reportScreen .process-name { font-size: 11px; }
+#reportScreen .process-val { font-size: 12px; min-width: 50px; }
+#reportScreen .process-txt { font-size: 10.5px; }
+
+/* ---- 状态诊断卡（体检报告口吻主结论） ---- */
+.diag-card {
+    margin: 2px 2px 12px;
+}
+.diag-name {
+    font-size: 21px;
+    font-weight: 800;
+    color: #f1f5f9;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+    text-align: center;
+}
+.diag-sub {
+    font-size: 13px;
+    font-weight: 600;
+    color: #94a3b8;
+    margin: 2px 0 8px;
+    text-align: center;
+}
+.diag-verdict {
+    margin: 0 0 5px;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: #e2e8f0;
+}
+.diag-evidence {
+    margin: 0 0 3px;
+    font-size: 9px;
+    color: #94a3b8;
+}
+
+/* ---- 报告页第三次压缩：状态诊断卡落地后仍贴一屏 ---- */
+#reportScreen .game-header { margin-bottom: 3px; }
+#reportScreen .rank-title { font-size: 0.85rem; }
+#reportScreen .rank-tag { font-size: 0.68rem; }
+#reportScreen .index-ring-wrap { width: 84px; height: 84px; margin: 0 auto 1px; }
+#reportScreen .index-ring { width: 84px; height: 84px; }
+#reportScreen .ring-center b { font-size: 22px; }
+#reportScreen .mini-trend-svg { width: 150px; height: 36px; }
+#reportScreen .section-label { margin: 3px 2px 2px; font-size: 0.76rem; }
+#reportScreen .dim-row { margin-bottom: 2px; }
+#reportScreen .dim-name { font-size: 11px; }
+#reportScreen .dim-bar { height: 5px; }
+#reportScreen .dim-score { font-size: 10.5px; }
+#reportScreen .dim-note { margin: 1px 0 0 30px; font-size: 10px; }
+#reportScreen .process-row { margin-bottom: 1px; }
+#reportScreen .process-name { font-size: 10.5px; }
+#reportScreen .process-val { font-size: 11px; min-width: 44px; }
+#reportScreen .process-txt { font-size: 10px; }
+#reportScreen .btn-group .btn { min-height: 34px; padding: 5px 4px; }
+#reportScreen .diag-card { padding: 8px 12px 8px; margin: 3px 2px 6px; }
+#reportScreen .diag-badge { width: 20px; height: 20px; line-height: 20px; font-size: 9px; margin-right: 6px; }
+#reportScreen .diag-name { font-size: 14.5px; }
+#reportScreen .diag-verdict { font-size: 12px; line-height: 1.5; margin-bottom: 4px; }
+#reportScreen .diag-evidence { font-size: 9px; margin-bottom: 2px; }
+#reportScreen 
+/* ---- 报告页第四次微压缩（诊断卡落地后 877→≤844） ---- */
+#reportScreen .game-header { margin-bottom: 2px; }
+#reportScreen .index-ring-wrap { width: 80px; height: 80px; }
+#reportScreen .index-ring { width: 80px; height: 80px; }
+#reportScreen .mini-trend-svg { width: 140px; height: 33px; }
+#reportScreen .section-label { margin: 2px 2px 2px; }
+#reportScreen .diag-card { padding: 7px 12px 7px; margin: 2px 2px 4px; }
+#reportScreen .diag-verdict { margin-bottom: 3px; }
+#reportScreen .btn-group .btn { min-height: 32px; padding: 4px 4px; }
+#reportScreen .advice-line { margin: 1px 2px 2px; }
+
+/* ---- 报告页第五轮微压缩（851→≤844） ---- */
+#reportScreen .btn-group .btn { min-height: 30px; padding: 3px 4px; }
+#reportScreen .diag-verdict { line-height: 1.45; }
+#reportScreen .process-row { margin-bottom: 0; }
+#reportScreen .dim-row { margin-bottom: 1px; }
+
+/* ---- 报告页重排：画像→5环→状态趋势（删等级横幅与维度明细后的布局） ---- */
+#reportScreen .ring-fg { stroke-width: 5.5; }
+#reportScreen .index-ring-wrap { width: 92px; height: 92px; margin: 4px auto 1px; }
+#reportScreen .index-ring { width: 92px; height: 92px; }
+#reportScreen .ring-center b { font-size: 20px; }
+#reportScreen .mini-trend-svg { width: 160px; height: 40px; }
+#reportScreen .mini-trend-title { font-size: 9px; margin-bottom: 0; }
+#reportScreen .diag-card { margin: 2px 2px 8px; }
+#reportScreen .diag-verdict { font-size: 12.5px; }
+#reportScreen .diag-evidence { font-size: 11.5px; }
+#reportScreen .section-label { margin: 4px 2px 2px; }
+#reportScreen .game-header { margin-bottom: 4px; }
+
+/* ---- 报告页依据单行保障 ---- */
+#reportScreen .diag-evidence { font-size: 11px; }
+
+/* ---- 报告页 v3：无框画像/大环小字/时间轴/固定按钮 ---- */
+#reportScreen .ring-fg { stroke-width: 5.5; }
+#reportScreen .index-hero { padding: 8px 12px 4px; }
+#reportScreen .index-ring-wrap { width: 100px; height: 100px; margin: 0 auto 2px; }
+#reportScreen .index-ring { width: 100px; height: 100px; }
+#reportScreen .ring-center b { font-size: 15px; }
+#reportScreen .ring-legend { margin: 2px 0 0; }
+#reportScreen .ring-legend > * + * { margin-left: 10px; }
+#reportScreen .legend-item { font-size: 10px; }
+#reportScreen .legend-item i { width: 6px; height: 6px; margin-right: 4px; }
+#reportScreen .mini-trend { margin: 3px 0 0; }
+#reportScreen .mini-trend-title { font-size: 10px; }
+#reportScreen .mini-trend-svg { width: 150px; height: 36px; }
+#reportScreen { position: relative; padding-bottom: 96px; }
+#reportScreen .btn-group {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 32px); /* 随视口自适应，左右各留 16px */
+    max-width: 560px;
+    bottom: 30px; /* Chrome 61 基线：无 env 时底部 30px */
+    bottom: calc(30px + env(safe-area-inset-bottom)); /* 新内核：避开底部指示条 */
+    z-index: 20;
+}
+#reportScreen .advice-line { margin: 2px 2px 6px; }
+#reportScreen .diag-name { font-size: 20px; }
+#reportScreen .diag-sub { font-size: 12.5px; }
+#reportScreen .diag-verdict { font-size: 13px; }
+
+/* ---- 报告页 v4：居中画像/环区去框/时间轴用时图 ---- */
+#reportScreen .index-hero {
+    border: 0;
+    background: none;
+    padding: 6px 12px 4px;
+}
+#reportScreen .ring-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #94a3b8;
+    margin: 0 0 2px;
+}
+#reportScreen .diag-verdict,
+#reportScreen .diag-evidence,
+#reportScreen .fc-maxline { stroke: rgba(255, 255, 255, 0.15); stroke-width: 1; }
+.fc-legendtext { font-size: 9px; fill: #94a3b8; }
+#reportScreen .focus-curve { height: 96px; }
+
+/* ---- 结算页 v5：与首页报告同源画像（隐藏等级徽章图标 + 评语行） ---- */
+#gameOverScreen .rank-title-icon { display: none; }
+#gameOverScreen .rank-title { justify-content: center; }
+#gameOverScreen .rank-verdict {
+    margin: 6px auto 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #cbd5e1;
+    max-width: 88%;
+    text-align: center;
+}
+
+/* ---- 结算页/报告页 v7：灰色辅助字统一 9px；小标题与综合得分同款 13px/600 ---- */
+#reportScreen .diag-evidence,
+#gameOverScreen .diag-evidence { font-size: 9px; }
+#reportScreen .legend-item,
+#gameOverScreen .legend-item { font-size: 9px; }
+#reportScreen .ring-title,
+#gameOverScreen .ring-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #94a3b8;
+}
+
+/* ---- 结算页/报告页 v8：评语与游戏成绩移到圆环图示后、字号与分享图一致 ---- */
+#reportScreen .diag-verdict {
+    font-size: 12.5px;
+    font-weight: 400;
+    color: #e2e8f0;
+    line-height: 1.5;
+    margin: 0 0 6px;
+}
+#reportScreen .diag-evidence {
+    font-size: 9px;
+    font-weight: 400;
+    color: #64748b;
+    margin: 0;
+}
+#reportScreen .diag-card-body {
+    margin: 2px 2px 8px;
+}
+/* 最近 5 次表现：隐藏（避免横向比较给用户压力） */
+#reportScreen .mini-trend { display: none; }
+
+/* ---- 报告页 v9：小标题居中+色标蓝；副标移到标题下居中 ---- */
+#reportScreen #reportProcessLabel,
+#reportScreen #reportAdviceLabel {
+    justify-content: center;
+    color: #38bdf8;
+}
+#reportScreen #reportProcessLabel::before,
+#reportScreen #reportAdviceLabel::before {
+    display: none;
+}
+#reportScreen #reportTotalLabel {
+    display: block;
+    text-align: center;
+    margin: 3px 0 2px;
+}
+/* 综合得分标题：对齐 60 秒状态趋势标题（居中 + 色标蓝） */
+#reportScreen .ring-title,
+#gameOverScreen .ring-title {
+    text-align: center;
+    color: #38bdf8;
+}
+/* ---- 报告页 v10：综合得分 / 60 秒趋势 / 小挑战 三大区块间距拉开 ---- */
+#reportScreen .index-hero { margin: 12px 0 14px; }
+#reportScreen #reportDiagBody { margin-bottom: 14px; }
+#reportScreen #reportProcessLabel { margin-top: 6px; }
+#reportScreen #reportProcess { margin-bottom: 4px; }
+#reportScreen #reportAdviceLabel { margin-top: 16px; }
+#reportScreen #reportTipContent { margin-bottom: 18px; }
+/* 游戏成绩行：居中（评语保持左对齐） */
+#reportScreen .diag-evidence { text-align: center; }
+
+/* ---- 报告页 v11：三个按钮固定到视口下端（不随内容滚动、不贴小挑战区块） ---- */
+#gameOverScreen,
+#reportScreen { padding-bottom: 120px; }
+#gameOverScreen .btn-group,
+#reportScreen .btn-group {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 32px); /* 随视口自适应，左右各留 16px */
+    max-width: 560px;
+    bottom: 30px; /* Chrome 61 基线：无 env 时底部 30px */
+    bottom: calc(30px + env(safe-area-inset-bottom)); /* 新内核：避开底部指示条 */
+    z-index: 20;
+    margin-bottom: 0;
+}

@@ -51,7 +51,7 @@ python3 <skill目录>/scripts/audit_artifact.py ./tool.zip
 1. 只保留完成核心功能必需的字段和记录，删除重复字段、长描述和历史快照。
 2. 能预计算的统计、搜索索引和分类结果在构建期生成；不要在首屏对全量数据反复遍历。
 3. 大型只读数据集改为摘要、分段样例或让用户通过 `<input type="file">` 按需导入。若完整离线数据不可删且仍超门禁，应明确说明该需求不适合小工具，而不是继续打包。
-4. 用户产生或导入的数据写入 IndexedDB；IndexedDB 用于运行期持久化，不用于掩盖巨大的内置种子数据。
+4. 用户产生或导入的数据需要持久化时，根据任务开始时从在线文档整理的端能力、最低版本和替代关系选择方案；没有适用于目标客户端的端能力时使用浏览器本地存储。运行期存储不得用于掩盖巨大的内置种子数据。
 
 渲染列表时：
 
@@ -70,7 +70,7 @@ python3 <skill目录>/scripts/audit_artifact.py ./tool.zip
 - 视频设置 `preload="metadata"` 或 `preload="none"`，提供 `poster`；未进入播放页前不要创建或解码媒体。
 - 同时只保留必要的媒体实例；离开页面后暂停播放、清空不再使用的 `src` 并释放对象 URL。
 
-`FileReader.readAsDataURL()` 可用于用户刚选择的小文件预览或 JSBridge 明确要求 data URI 的短暂转换；大文件不要把结果持久写回静态源码，优先用对象 URL 预览，并在不用时 `URL.revokeObjectURL()`。注意：即使体积很小，`<video>` / `<audio>` 的 `data:` 媒体源仍不受容器 CSP 支持，应引用包内媒体文件。
+`FileReader.readAsDataURL()` 可用于用户刚选择的小文件预览或在线文档明确要求 data URI 的短暂转换；大文件不要把结果持久写回静态源码，优先用对象 URL 预览，并在不用时 `URL.revokeObjectURL()`。注意：即使体积很小，`<video>` / `<audio>` 的 `data:` 媒体源仍不受容器 CSP 支持，应引用包内媒体文件。
 
 ---
 

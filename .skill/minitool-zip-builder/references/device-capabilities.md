@@ -2,16 +2,17 @@
 
 > 小工具运行在受限容器中：**纯本地、不联网**，把它当作一个能力受限的浏览器页面。
 > **以本文为基线**：命中「不可用」项必须移除或改用替代写法。
+>
+> **实现优先级**：先获取[小工具在线文档](https://miniapp-sandbox.xiaohongshu.com/minitool/doc)并查找匹配的容器能力；文档明确支持时必须优先使用，仅在没有匹配能力或当前环境不满足文档条件时才采用兼容的 Web 方案。
 
 ## 目录
 
 - §1 可用能力
-- §2 Native 能力（JSBridge）
-- §3 不可用能力（Web API）
-- §4 不可用行为
-- §5 WebGL / 图形计算边界
-- §6 常见交互怎么实现
-- §7 能力扫描清单
+- §2 不可用能力（Web API）
+- §3 不可用行为
+- §4 WebGL / 图形计算边界
+- §5 常见交互怎么实现
+- §6 能力扫描清单
 
 ---
 
@@ -19,7 +20,7 @@
 
 ### 页面与渲染
 
-标准 HTML / CSS / JS 可用，但最终产物须满足目标内核基线：JS 见 [js-compatibility.md](./js-compatibility.md)，CSS 见 [css-compatibility.md](./css-compatibility.md)。可使用基线内的 Flexbox / Grid / 动画 / 媒体查询、Canvas 2D（`getContext('2d')`）、WebGL（`getContext('webgl'/'webgl2')`，能力边界见 §5、性能与低端机降级见 [performance-budget.md](./performance-budget.md) §4–5），文本选择不限制。
+标准 HTML / CSS / JS 可用，但最终产物须满足目标内核基线：JS 见 [js-compatibility.md](./js-compatibility.md)，CSS 见 [css-compatibility.md](./css-compatibility.md)。可使用基线内的 Flexbox / Grid / 动画 / 媒体查询、Canvas 2D（`getContext('2d')`）、WebGL（`getContext('webgl'/'webgl2')`，能力边界见 §4、性能与低端机降级见 [performance-budget.md](./performance-budget.md) §4–5），文本选择不限制。
 
 ### 媒体与文件
 
@@ -32,9 +33,7 @@
 
 ### 数据存储
 
-`localStorage` / `sessionStorage` / `IndexedDB` / `Cookie` / `Cache API` 均可用，按小工具独立隔离，其他小工具与外部无法访问。
-
-Cookie 仅作本地存储：可读写、按 origin 隔离，但因不联网**不会随请求发往服务端**，不能用于登录态 / 鉴权。需要本地存储优先用 `localStorage` / `IndexedDB`。数据不保证永久持久化。
+数据存储方案以[小工具在线文档](https://miniapp-sandbox.xiaohongshu.com/minitool/doc)的当前规则为准。数据按小工具隔离，不保证永久持久化。
 
 ### 交互
 
@@ -42,25 +41,7 @@ Cookie 仅作本地存储：可读写、按 origin 隔离，但因不联网**不
 
 ---
 
-## 2. Native 能力（JSBridge）
-
-容器会注入 **`window.xhs.miniTool.*`**，通过它调用 Native 能力（发笔记、存相册、跳 App 页等）。
-
-| 规则 | 说明 |
-| --- | --- |
-| 唯一入口 | 只用 `window.xhs.miniTool.<apiName>(options)`，**禁止**自行 `postMessage` 到 bridge |
-| 契约来源 | 以 [`jsbridge-api.md`](./jsbridge-api.md) 为准 |
-| 参数校验 | 必填项、长度、数组上限等以 [`jsbridge-api.md`](./jsbridge-api.md) 为准 |
-| 本地路径 | `saveImageToPhotosAlbum.filePath` 不支持网络 URL；base64 可先 `writeTempFile` 换 `filePath` |
-| data:uri | `writeTempFile.data` 必须是完整 `data:<mime>;base64,...`（`canvas.toDataURL()` 原样传），裸 base64 会失败 |
-| 发笔记 | `postNote.mediaInfo` 必填；图片走 `image_resources[].url`，视频走 `video_resources` |
-| 跳原生页 | `openRedPage.type` 须命中 Native 规则表白名单，`params` 为语义参数 |
-
-完整 API 列表、字段表与示例 → **[jsbridge-api.md](./jsbridge-api.md)**。
-
----
-
-## 3. 不可用能力（Web API）
+## 2. 不可用能力（Web API）
 
 以下 API 已禁用，调用会抛异常、返回空值或被拦截，必须移除或改用替代写法。
 
@@ -74,7 +55,7 @@ Cookie 仅作本地存储：可读写、按 origin 隔离，但因不联网**不
 | 后台运行 | Web Worker、SharedWorker、Service Worker（`navigator.serviceWorker.register`） | 移除，逻辑放主线程 |
 | 屏幕 | `getDisplayMedia`（屏幕共享）、`Element.requestFullscreen`（全屏由容器统一管理） | 全屏用 CSS 沉浸式布局实现视觉全屏 |
 | 设备信息 | `navigator.getBattery`、`navigator.connection`、`navigator.mediaDevices.enumerateDevices` | 移除 |
-| 存储进阶 | `navigator.storage.persist`（持久化）、跨域存储访问 | 移除，本地缓存用 `localStorage` / `IndexedDB` |
+| 存储进阶 | `navigator.storage.persist`（持久化）、跨域存储访问 | 移除；获取在线文档并按当前能力替代关系选择方案 |
 | 凭据 | `navigator.credentials.get` / `create`（WebAuthn）、`navigator.locks` | 移除 |
 | 窗口 | `window.open`（弹新窗口）、`window.prompt` | 单页内 JS 切换视图 DOM；输入用页内 Modal |
 
@@ -82,7 +63,7 @@ Cookie 仅作本地存储：可读写、按 origin 隔离，但因不联网**不
 
 ---
 
-## 4. 不可用行为
+## 3. 不可用行为
 
 | 行为 | 说明 | 替代方案 |
 | --- | --- | --- |
@@ -99,7 +80,7 @@ Cookie 仅作本地存储：可读写、按 origin 隔离，但因不联网**不
 
 ---
 
-## 5. WebGL / 图形计算边界
+## 4. WebGL / 图形计算边界
 
 纯 WebGL 渲染可用，组合能力受限：
 
@@ -115,10 +96,11 @@ WebGL 适合用包内资源做本地渲染；AI 图像处理等重计算（需�
 
 ---
 
-## 6. 常见交互怎么实现
+## 5. 常见交互怎么实现
 
 | 需求 | 实现 |
 | --- | --- |
+| 容器提供的功能 | 获取[小工具在线文档](https://miniapp-sandbox.xiaohongshu.com/minitool/doc)，优先使用其中匹配的能力；仅在无匹配能力或不满足文档条件时采用兼容的 Web 方案 |
 | 手势 / 拖拽 / 滑动 | `addEventListener('touchstart'/'touchmove'/'touchend')` 或 Pointer Events（`pointerdown`/`move`/`up`） |
 | 拍照 / 录音 | `getUserMedia(...)`，由按钮点击等用户手势触发 + 授权 |
 | 选择图片 / 视频 | `<input type="file">` |
@@ -126,13 +108,10 @@ WebGL 适合用包内资源做本地渲染；AI 图像处理等重计算（需�
 | 视觉全屏 | CSS 布局（`100vh` / flex + 隐藏滚动） |
 | 页面跳转 | 单页内用 JS 切换视图 DOM |
 | 输入弹窗 | 页内 Modal 组件 |
-| 保存图片到相册 | `writeTempFile({ data: canvas.toDataURL(...) })`（须完整 data:uri）→ `saveImageToPhotosAlbum({ filePath })`，见 [jsbridge-api.md](./jsbridge-api.md) |
-| 发布笔记 | `postNote({ mediaInfo, title?, content? })` |
-| 跳转 App 搜索 / 用户页等 | `openRedPage({ type, params? })`，`type` 须在白名单内 |
 
 ---
 
-## 7. 能力扫描清单
+## 6. 能力扫描清单
 
 扫描代码，命中下列模式则**必须删除或改用替代写法**：
 
@@ -162,7 +141,8 @@ location.href = / location.assign(   （跳转站外 URL）
 ```
 navigator.mediaDevices.getUserMedia({ video / audio })   // 用户手势 + 授权
 <input type="file">                                       // 选图片 / 视频
-localStorage / sessionStorage / IndexedDB / Cookie / Cache API   // 独立隔离
+在线文档列出且满足目标版本要求的端能力                           // 按文档中的替代关系选择
+浏览器本地存储                                                  // 无适用端能力时使用，按小工具隔离
 alert() / confirm()
 touch / pointer events                                    // 手势交互
 标准 DOM / CSS / Canvas 2D / WebGL 渲染

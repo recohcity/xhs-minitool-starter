@@ -329,24 +329,98 @@ btn-group.getBoundingClientRect().bottom <= screen.clientHeight  // 按钮不裁
 
 > 后续每轮优化完成后，按「现象 → 根因 → 解法（含代码）→ 验证」格式追加到下方，保持文档可持续生长。
 
-### 7.1 分享按钮「点两次才弹出发布页」——点击链路净化 + 失败自动补一次
+### 7.1 分享按钮「点两次才弹出发布页」——点击链路净化 + 降体积 + filePath 优先 + 桥预热（终案·真机验证通过）
 
-**现象**：真机每次点击分享按钮都要点 2 次才弹出发布笔记页。
+**现象**：真机每次点击分享按钮都要点 2 次才弹出发布笔记页。用户精确描述：第 1 次点击按钮「闪一下」无效果，第 2 次点击看到「100% 加载完成」后进入发布页——**第 1 次用的是未落盘的 dataURL（容器静默失败），第 2 次用的是已就绪的 filePath（本地文件加载成功）**。
 
-**根因**：点击处理里 `postNote` 之前的主线程重活 + 大 base64 首次过桥，会让容器吞掉首次调用：
-1. 旧 `handleShare` 在 `postNote` 前改 `textContent` / 置 `disabled` → 强制 reflow；
-2. 报告页分享每次点击都 `JSON.parse`（含 ~1MB 大 base64 的 localStorage）→ `sanitizeReportData` 用 emoji 正则扫描大字符串 → 实时 `renderShareCard`；
-3. `postNote` 携带的分享图 data:uri 约 **1.1MB** base64，首次过桥慢/易失败。
+**根因（分层）**：
+1. 点击处理里 `postNote` 之前的主线程重活 + 大 base64 首次过桥，会让容器吞掉首次调用（旧 `handleShare` 改 `textContent`/`disabled` 强制 reflow；每次点击 `JSON.parse` ~1MB base64 + emoji 正则扫描 + 实时 `renderShareCard`）；
+2. **真机定论：`postNote` 的 `image_resources[].url` 传 `data:` base64 直传不可靠（首次过桥慢/易失败、静默吞掉），传 `writeTempFile` 返回的 `filePath` 才稳定**——这是反复 5 轮修复后最终确认的行为；
+3. 预热 `writeTempFile` 若在用户点击后才完成，点击时只能回退 dataURL → 首次调用失败；
+4. 容器 JSBridge 首次调用存在初始化延迟，首个 `postNote` 可能被吞（无 reject/resolve，Promise 挂起，自动补也不触发）。
 
-**解法（三层）**：
+**解法（终案，五层叠加）**：
 1. **点击零准备**：进入页面时就绪分享图与文案并缓存到内存（结算页 `endGame` 预渲染；报告页 `showReport` 时 `prepareSharePayload` 预渲染并写入 `cachedReportShare`），点击瞬间直接取用，不再实时渲染 / 解析 / 清洗。
-2. **点击链路纯净**：`handleShare` 不再写 `disabled` / 改文本（会强制 reflow），改用 CSS class `.is-sharing`（`opacity` + `pointer-events:none`）防重；`shareReport` 直接取缓存的 `shareImageDataUrl`，`postNote` 是点击同步栈里几乎唯一的动作。
-3. **失败自动补一次**：`postNote` reject 时 400ms 后自动重发一次（成功即跳转离开页面，无重复弹窗风险）；另加 6s 超时兜底恢复按钮（容器弹页后 JS 侧 Promise 可能挂起）。
-4. 附带：`sanitizeReportData` 跳过 `shareImageDataUrl`（base64 无 emoji，避免扫描大字符串）。
+2. **点击链路纯净**：`handleShare` 不再写 `disabled` / 改文本（会强制 reflow），改用 CSS class `.is-sharing`（`opacity` + `pointer-events:none`）防重；`shareReport` 是点击同步栈里几乎唯一的动作，`postNote` 同步发出、零 await（预热 filePath 优先，否则 dataURL 保底）。
+3. **分享图降体积（治本之一）**：导出格式 PNG → **JPEG 0.85**（分享卡深蓝渐变背景不透明，JPEG 无视觉损失；WebP 有旧内核兼容风险慎用）。720 宽分享卡实测 **810KB → 57KB（缩小 14 倍）**，过桥数据量级从 ~1MB 降到 ~57KB。
+4. **filePath 优先 + 预热提前（治本之二·真机关键）**：`prewarmShareImage` 在 **`endGame` 生成分享图后立即调用**（结算动画 + 用户阅读报告期间完成 `writeTempFile` 落盘，天然 2~3s 缓冲），点击时 `shareImagePath` 必已就绪；首页报告路径 `showReport` 同样预热（`prewarmShareImage` 内部有 `shareImagePath` 防重）。
+5. **桥预热 + 防重窗口缩短**：页面加载/开局即调**无副作用只读 API `getLaunchOptions`** 建立 JSBridge 通道（`warmupBridge()`，避免首次 postNote 撞初始化延迟）；`postNote` reject 时 400ms 自动补发一次（成功即跳转离开页面，无重复弹窗风险）；超时兜底从 6s 缩至 **2.5s**（容器弹页后 Promise 挂起时更快恢复按钮，用户可再点，此时桥已预热 + filePath 已就绪，第二次几乎必成）。
+6. 附带：`sanitizeReportData` 跳过 `shareImageDataUrl`（base64 无 emoji，避免扫描大字符串）。
 
-**验证（本地 mock 容器）**：注入 `window.xhs.miniTool.postNote` mock，断言——3 次快速连点只触发 1 次 postNote；首调 reject 时自动补发、最终 1 次点击成功；报告页点 1 次带缓存 dataUrl（len>100000）不实时渲染。
+**验证**：
+- 本地 mock 容器：注入 `getLaunchOptions` / `postNote` / `writeTempFile` mock——页面 load 即调 `getLaunchOptions` 1 次；预热 250ms 完成 → 点击 1 次恰好 1 次 postNote、`image_resources[0].url` 为预热 `filePath`（非 dataURL）；3 次快速连点只触发 1 次 postNote；首调 reject 自动补发。
+- **真机（用户验收）**：修复前点 2 次（第 1 次闪一下失败）；修复后游戏结束直接点分享，**1 次点击即弹出发布笔记页**。
+- **挂起补发增强（2026-10-08 复测回归）**：真机偶发「又要点 2 次」，根因是容器吞掉首次 postNote 时 Promise **挂起（不 resolve 不 reject）**，原有 catch 补发不触发。新增：postNote 发出后 600ms 未 settle 即视为被吞，自动补发一次（`shareReport(snapshot, true)`，此时 filePath 大概率已就绪）；成功跳转后页面 JS 上下文销毁，定时器不再触发，无重复弹窗风险。mock 验证：首次挂起 → 600ms 自动补发成功（补发 url 为 filePath），`autoRetryWorked: true`。
 
-**注意**：分享图 720×1306 的 PNG data:uri 约 1.1MB，是过桥慢的隐患；若真机仍偶发需点两次，再考虑 `writeTempFile` 换小 `filePath` 或降体积（WebP 有旧内核兼容风险，慎用）。
+**要点**：`postNote` 媒体字段传 `filePath` 优先于 `dataURL`；预热必须早于用户可点击时刻完成（提前到结果生成即预热）；首次桥调用前先用 `getLaunchOptions` 预热通道；容器吞调用可能是「静默挂起」而非 reject——必须加超时判吞自动补发，不能只依赖 catch。
+
+### 7.2 postNote 的 tags 必须是 string——传数组会被 Native 忽略
+
+**现象**：同义替换词「发笔记（多图词卡）」测试，发布页标题/正文正常预填，但**话题区空**，只有小红书按内容自动推荐的快捷话题（如 #英语写作 #雅思大作文），用户需手动点选，即「看不到添加的标签」。
+
+**根因**：`jsbridge-api.md` 规定 `postNote.tags` 类型为 **string**（"表中未声明的字段不要传"），而代码传的是数组（`["#英语学习", ...]`），Native 解析失败/直接忽略，话题未附着。
+
+**解法**：统一在 postNote 边界做数组 → 字符串转换，空格分隔、保留 `#` 前缀（与发布页话题展示形式一致）：
+
+```js
+function tagsToStr(tags) {
+  if (!tags || !tags.length) return "";
+  var arr = [];
+  for (var i = 0; i < tags.length; i++) {
+    var s = String(tags[i]).trim();
+    if (!s) continue;
+    arr.push(s.charAt(0) === "#" ? s : "#" + s);
+  }
+  return arr.join(" ");
+}
+```
+
+三处调用点都要改：标准词卡多图分享（`doShareImage`）、练习成绩分享（`doPost`）、词库反馈分享；`if (tags.length) postData.tags = ...` 改为 `var tagStr = tagsToStr(tags); if (tagStr) postData.tags = tagStr;`。
+
+**验证（本地 mock 容器）**：注入 `window.xhs.miniTool.postNote` mock 后走完整点击路径，断言捕获的 `postData.tags` 为 string：`"#英语学习 #同义替换 #英语写作 #雅思 #四六级 #important #英语词汇 #学习打卡 #英语口语 #英语干货"`。
+
+**注意**：JSBridge 文档未规定 tags 字符串分隔符。真机后续两轮实测（见 7.3 终案）证明：`postData.tags` 无论传 "#前缀空格串" 还是 "纯话题名空格串"，话题都不附着——**tags 字段在真机上不承载话题预置能力**，不要再花精力调其格式。
+
+### 7.3 postNote 真机复测：tags 字段（string）仍未附着话题 → 正文内嵌话题双保险
+
+**现象（真机复测）**：按 7.2 把 `postData.tags` 改为 string（空格 + #前缀）后重新上传，发布页**话题区依然空白**，只有小红书按内容关键词自动推荐的快捷话题按钮，用户仍需手动点选。
+
+**结论**：`postNote.tags` 字段在真机上不可靠（PC 模拟器是否生效未验证），不要再依赖它单独完成话题预置。后续两轮真机实测进一步确认：纯 `#话题` 文字只以灰色普通文本展示（可见但不可点击、不算话题），**唯一能让话题真实附着（蓝字）的是正文内嵌 `#话题名[话题]#` 序列化格式**——见下方「终案」。
+
+**解法（双保险）**：在笔记 `content` 正文末尾追加完整话题串（平台按正文 #话题 识别/转话题），同时保留 `postData.tags` string 字段：
+- `stdCardNote` / `quizNote`（两分支）：`content += "\n\n" + tags.join(" ")`（tags 数组须先于 content 定义）；
+- 词库反馈文案原本已在正文末尾带 `#同义替换词 #词库反馈`，保持。
+- 内容长度控制在 1000 字内（实测 331 字含 10 话题，安全）。
+
+**验证（本地 mock）**：mock postNote 断言 `content` 以 `"\n\n#英语学习 #同义替换 #英语写作 …"` 结尾、`tags` 为同值 string。
+
+**终案（2026-09-15 真机确认，v2026.09.15-t3）**：小红书话题的富文本序列化格式为 `#话题名[话题]#`。把正文末尾话题串从纯 `#名称` 改为该格式后，真机发布页把 10 个话题全部还原为**真实蓝字话题**，用户确认"话题生效了"。实现：
+
+```js
+/* tags 数组 → 话题标记串：xhs 话题序列化格式 "#名称[话题]#"，pre-fill 可还原为真话题（蓝字） */
+function topicMarkup(tags) {
+  if (!tags || !tags.length) return "";
+  var arr = [];
+  for (var i = 0; i < tags.length; i++) {
+    var s = String(tags[i]).trim();
+    if (!s) continue;
+    if (s.charAt(0) !== "#") s = "#" + s;
+    arr.push(s + "[话题]#");
+  }
+  return arr.join(" ");
+}
+```
+
+替换点：`stdCardNote`、`quizNote` 两分支的 `tags.join(" ")` → `topicMarkup(tags)`；词库反馈正文内联改 `#同义替换词[话题]# #词库反馈[话题]#`。`postData.tags` 保留纯话题名 string（无害，备用）。实测正文 381 字（10 话题 + 标记）< 1000 上限。
+
+**真机判定路径速查（不要再重走）**：
+1. tags 数组 → 话题区空（Native 忽略类型不符字段）
+2. tags string "#前缀空格串" → 话题区空
+3. tags string 纯话题名空格串 → 话题区空
+4. 正文内嵌纯 "#名称" 空格串 → 发布后为灰色普通文本，非话题
+5. 正文内嵌 "#名称[话题]#" 空格串 → **话题生效（蓝字）** ✅
+
+**流程教训（2026-09-15）**：封面/设计类改版，先向用户确认设计方向再动代码与打包；用户仅提供设计参考图≠已授权实施，擅自改并重打包会被要求回滚。
 
 * （待追加）真机实测 `--container-nav-h` 最终校准值：\_\_\_
 

@@ -6,7 +6,7 @@
     <title>飘 · 反应力训练</title>
     <meta name="description" content="60秒滑动反应挑战：绿叶看指向、橙叶看移动，锻炼你的反应灵活性与注意力控制。">
     <!-- CSS stylesheet Link (offline: no external fonts, system font stack in styles.css) -->
-    <link rel="stylesheet" href="styles.css?v=20260903">
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <!-- Atmospheric Deep Water Background: static flow lines + rising leaves -->
@@ -225,212 +225,127 @@
             </footer>
         </section>
 
-        <!-- ================= GAME OVER SCREEN ================= -->
+        <!-- ================= GAME OVER SCREEN（测评报告·人话版） ================= -->
         <section id="gameOverScreen" class="screen">
             <header class="game-header text-center">
-                <h2>我的反应力报告</h2>
+                <h2>反应力测评报告</h2>
+                <p class="report-date">60 秒标准测试 · <span id="goTestTime"></span></p>
             </header>
 
-            <!-- 等级徽章：视觉焦点，取代原来的边框卡片 -->
+            <!-- 等级标题：结论先行（等级字母并入下方环形仪表） -->
             <div class="rank-hero" id="rankHero">
-                <div class="rank-badge">
-                    <span class="rank-badge-letter" id="rankLetter">S</span>
-                </div>
                 <div class="rank-title">
                     <svg class="rank-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path id="rankTitleIconPath" d="M12 2a6 6 0 1 0 0 12a6 6 0 1 0 0-12 M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>
                     </svg>
-                    <span id="rankTitle">反应力等级：S｜超敏捷</span>
+                    <span id="rankTitle">反应力等级：优秀</span>
                 </div>
-                <div class="rank-tag" id="rankTag">超敏捷·反应小天才</div>
+                <div class="rank-tag" id="rankTag">反应敏捷·超出大多数人</div>
+                <p class="rank-verdict" id="goVerdict"></p>
             </div>
 
-            <!-- 个性化解读：轻量引述，无边框，句尾等级色星标 -->
-            <p class="interpret-text">
-                <span id="interpretText">你的反应又快又稳，面对规则切换也可以轻松接住，天赋很不错</span>
-                <svg class="interpret-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg>
-            </p>
-
-            <!-- 四大能力：横向条列表，重点突出数值 -->
-            <div class="section-label">四维能力</div>
-            <div class="ability-grid">
-                <div class="ability-card ability-speed">
-                    <span class="ability-icon-wrap">
-                        <svg class="ability-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                    </span>
-                    <span class="ability-text">
-                        <span class="ability-name">反应速度</span>
-                        <span class="ability-eval" id="abilitySpeedEval">偏快</span>
-                    </span>
-                    <span class="ability-value" id="abilitySpeedVal">620ms</span>
+            <!-- 综合反应力指数：三环仪表（手速/准头/切换 + 中央等级与总分） -->
+            <div class="index-hero">
+                <div class="index-ring-wrap">
+                    <svg class="index-ring" viewBox="0 0 120 120" aria-hidden="true">
+                        <circle class="ring-bg" cx="60" cy="60" r="51"/>
+                        <circle class="ring-fg ring-outer" id="goRingOuter" cx="60" cy="60" r="51"/>
+                        <circle class="ring-fg ring-mid" id="goRingMid" cx="60" cy="60" r="40"/>
+                        <circle class="ring-fg ring-inner" id="goRingInner" cx="60" cy="60" r="29"/>
+                    </svg>
+                    <div class="ring-center">
+                        <b id="goIndexValue">92</b>
+                    </div>
                 </div>
-                <div class="ability-card ability-accuracy">
-                    <span class="ability-icon-wrap">
-                        <svg class="ability-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><circle cx="12" cy="12" r="1"></circle></svg>
-                    </span>
-                    <span class="ability-text">
-                        <span class="ability-name">判断准确度</span>
-                        <span class="ability-eval" id="abilityAccuracyEval">很稳定</span>
-                    </span>
-                    <span class="ability-value" id="abilityAccuracyVal">94%</span>
+                <div class="ring-legend">
+                    <span class="legend-item legend-speed"><i></i>手速</span>
+                    <span class="legend-item legend-acc"><i></i>正确</span>
+                    <span class="legend-item legend-switch"><i></i>切换</span>
                 </div>
-                <div class="ability-card ability-switch">
-                    <span class="ability-icon-wrap">
-                        <svg class="ability-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
-                    </span>
-                    <span class="ability-text">
-                        <span class="ability-name">切换灵活性</span>
-                        <span class="ability-eval" id="abilitySwitchEval">灵活</span>
-                    </span>
-                    <span class="ability-value" id="abilitySwitchVal">750ms</span>
-                </div>
-                <div class="ability-card ability-focus">
-                    <span class="ability-icon-wrap">
-                        <svg class="ability-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                    </span>
-                    <span class="ability-text">
-                        <span class="ability-name">连续专注力</span>
-                        <span class="ability-eval" id="abilityFocusEval">专注力在线</span>
-                    </span>
-                    <span class="ability-value" id="abilityFocusVal">12题</span>
+                <!-- 最近 5 次趋势（迷你 5 点，替换原"建议连续测 3 次取稳定值"） -->
+                <div class="mini-trend" id="goMiniTrend">
+                    <span class="mini-trend-title">最近5次趋势</span>
+                    <svg class="mini-trend-svg" viewBox="0 0 200 50" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
                 </div>
             </div>
 
+            <!-- 人话解读：本次实测数据生成（3 卡横排，仅本局） -->
+            <div class="section-label">你这次的表现</div>
+            <div id="goInsightList"></div>
 
-            <!-- 本局小记：无边框统计条 -->
-            <div class="section-label">本局小记</div>
-            <div class="sub-data-strip">
-                <div class="sub-data-item">
-                    <span class="sub-data-val" id="subScoreVal">14,200</span>
-                    <span class="sub-data-key">本局得分</span>
-                </div>
-                <div class="sub-data-item">
-                    <span class="sub-data-val" id="subPeakVal">8x</span>
-                    <span class="sub-data-key">最高倍率</span>
-                </div>
-                <div class="sub-data-item">
-                    <span class="sub-data-val" id="subFastestVal">410ms</span>
-                    <span class="sub-data-key">最快反应</span>
-                </div>
-            </div>
+            <!-- 数据有效性提示 -->
+            <p class="validity-note" id="goValidity"></p>
 
-            <!-- 训练建议：色带横幅 -->
-            <div class="tip-banner">
-                <span class="tip-icon">
-                    <svg class="tip-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
-                </span>
-                <div class="tip-body">
-                    <div class="tip-title">给你的小训练建议</div>
-                    <p class="tip-content" id="tipContent">继续保持日常轻量训练，维持你的灵敏反应力！</p>
-                </div>
-            </div>
+            <!-- 训练建议：标题与解读区一致，无外框，单行文字 -->
+            <div class="section-label">给你一个小挑战</div>
+            <p class="advice-line" id="goTipContent"></p>
 
             <!-- Action buttons -->
             <div class="btn-group font-center">
-                <button id="restartGameBtn" class="btn btn-primary">重新挑战</button>
-                <button id="shareResultBtn" class="btn btn-share">分享</button>
+                <button id="restartGameBtn" class="btn btn-primary">再测一次</button>
+                <button id="shareResultBtn" class="btn btn-share">晒出我的成绩</button>
                 <button id="backToMenuBtn" class="btn btn-secondary">返回首页</button>
             </div>
         </section>
 
-        <!-- ================= REPORT DETAIL SCREEN（我的反应力报告） ================= -->
+        <!-- ================= REPORT DETAIL SCREEN（反应力专业报告） ================= -->
         <section id="reportScreen" class="screen">
             <header class="game-header text-center">
-                <h2>我的反应力报告</h2>
+                <h2>你的反应力评测报告</h2>
                 <p class="report-date" id="reportDate">最近测试</p>
             </header>
 
-            <div class="rank-hero" id="reportRankHero">
-                <div class="rank-badge">
-                    <span class="rank-badge-letter" id="reportRankLetter">A</span>
-                </div>
-            <div class="rank-title">
-                <svg class="rank-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path id="reportRankTitleIconPath" d="M22 11.08V12a10 10 0 1 1-5.93-9.14 M22 4 12 14.01 9 11.01"/>
-                </svg>
-                <span id="reportRankTitle">反应力等级：A｜稳定在线</span>
-            </div>
-            <div class="rank-tag" id="reportRankTag">稳扎稳打·状态在线</div>
-            </div>
+            <!-- 状态诊断：体检报告式主结论（画像/评语/依据，置顶于五环之前） -->
+            <div id="reportDiagnosis"></div>
 
-            <p class="interpret-text">
-                <span id="reportInterpretText">表现稳定，继续保持可向S级冲刺</span>
-                <svg class="interpret-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg>
-            </p>
-
-            <div class="section-label">四维能力</div>
-            <div class="ability-grid">
-                <div class="ability-card ability-speed">
-                    <span class="ability-icon-wrap">
-                        <svg class="ability-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                    </span>
-                    <span class="ability-text">
-                        <span class="ability-name">反应速度</span>
-                        <span class="ability-eval" id="reportSpeedEval">正常</span>
-                    </span>
-                    <span class="ability-value" id="reportSpeedVal">948ms</span>
+            <!-- 综合概览：五环仪表（手速/正确/切换/抗扰/稳定 + 最近5次表现） -->
+            <div class="index-hero">
+                <div class="ring-title">综合得分</div>
+                <div class="index-ring-wrap">
+                    <svg class="index-ring" viewBox="0 0 120 120" aria-hidden="true">
+                        <circle class="ring-fg ring-outer" id="reportRingOuter" cx="60" cy="60" r="54"/>
+                        <circle class="ring-fg ring-mid" id="reportRingMid" cx="60" cy="60" r="46"/>
+                        <circle class="ring-fg ring-inner" id="reportRingInner" cx="60" cy="60" r="38"/>
+                        <circle class="ring-fg ring-a" id="reportRingA" cx="60" cy="60" r="30"/>
+                        <circle class="ring-fg ring-b" id="reportRingB" cx="60" cy="60" r="22"/>
+                    </svg>
+                    <div class="ring-center">
+                        <b id="reportIndexValue">92</b>
+                    </div>
                 </div>
-                <div class="ability-card ability-accuracy">
-                    <span class="ability-icon-wrap">
-                        <svg class="ability-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><circle cx="12" cy="12" r="1"></circle></svg>
-                    </span>
-                    <span class="ability-text">
-                        <span class="ability-name">判断准确度</span>
-                        <span class="ability-eval" id="reportAccuracyEval">很稳定</span>
-                    </span>
-                    <span class="ability-value" id="reportAccuracyVal">95%</span>
+                <div class="ring-legend">
+                    <span class="legend-item legend-speed"><i></i>手速</span>
+                    <span class="legend-item legend-acc"><i></i>正确</span>
+                    <span class="legend-item legend-switch"><i></i>切换</span>
+                    <span class="legend-item legend-inhib"><i></i>抗扰</span>
+                    <span class="legend-item legend-cv"><i></i>稳定</span>
                 </div>
-                <div class="ability-card ability-switch">
-                    <span class="ability-icon-wrap">
-                        <svg class="ability-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
-                    </span>
-                    <span class="ability-text">
-                        <span class="ability-name">切换灵活性</span>
-                        <span class="ability-eval" id="reportSwitchEval">灵活</span>
-                    </span>
-                    <span class="ability-value" id="reportSwitchVal">+55ms</span>
-                </div>
-                <div class="ability-card ability-focus">
-                    <span class="ability-icon-wrap">
-                        <svg class="ability-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                    </span>
-                    <span class="ability-text">
-                        <span class="ability-name">连续专注力</span>
-                        <span class="ability-eval" id="reportFocusEval">专注力在线</span>
-                    </span>
-                    <span class="ability-value" id="reportFocusVal">60题</span>
+                <div class="mini-trend" id="reportMiniTrend">
+                    <span class="mini-trend-title">最近5次表现</span>
+                    <svg class="mini-trend-svg" viewBox="0 0 200 50" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
                 </div>
             </div>
 
-            <div class="section-label">测试小记</div>
-            <div class="sub-data-strip">
-                <div class="sub-data-item">
-                    <span class="sub-data-val" id="reportSubScore">15,000</span>
-                    <span class="sub-data-key">本局得分</span>
-                </div>
-                <div class="sub-data-item">
-                    <span class="sub-data-val" id="reportSubPeak">10x</span>
-                    <span class="sub-data-key">最高倍率</span>
-                </div>
-                <div class="sub-data-item">
-                    <span class="sub-data-val" id="reportSubFastest">625ms</span>
-                    <span class="sub-data-key">最快反应</span>
-                </div>
+            <!-- 评语 + 游戏成绩（圆环图示后，与分享图同序） -->
+            <div id="reportDiagBody"></div>
+
+            <!-- 60 秒反应力・专注力轨迹：反应力+专注力（全为本局实测） -->
+            <div class="section-label" id="reportProcessLabel">60 秒反应力・专注力轨迹</div>
+            <div class="section-label-sub" id="reportTotalLabel"></div>
+            <div id="reportProcess">
+                <div class="focus-curve-wrap" id="reportFocusCurve" aria-hidden="true"></div>
             </div>
 
-            <div class="tip-banner">
-                <span class="tip-icon">
-                    <svg class="tip-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
-                </span>
-                <div class="tip-body">
-                    <div class="tip-title">给你的小训练建议</div>
-                    <p class="tip-content" id="reportTipContent">继续保持日常轻量训练，维持你的灵敏反应力！</p>
-                </div>
-            </div>
+            <!-- 数据有效性：正常时不显示，异常时人话提示 -->
+            <p class="validity-note" id="reportValidity"></p>
+
+            <!-- 综合建议：标题与解读区一致，无外框，单行文字 -->
+            <div class="section-label" id="reportAdviceLabel">给你一个小挑战</div>
+            <p class="advice-line" id="reportTipContent"></p>
 
             <div class="btn-group font-center">
                 <button id="reportRetestBtn" class="btn btn-primary">再测一次</button>
-                <button id="reportShareBtn" class="btn btn-share">分享</button>
+                <button id="reportShareBtn" class="btn btn-share">晒出我的成绩</button>
                 <button id="reportBackBtn" class="btn btn-secondary">返回首页</button>
             </div>
         </section>
@@ -439,6 +354,6 @@
     </main>
 
     <!-- Game Engine script Link -->
-    <script src="game.js?v=20260903"></script>
+    <script src="game.js"></script>
 </body>
 </html>

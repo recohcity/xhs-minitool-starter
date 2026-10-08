@@ -1,0 +1,20 @@
+{
+  "product": "跨境商品合规检查器",
+  "stage": "paying",
+  "demand": {
+    "specific_person_scene": 2,
+    "progress_consequence": 2,
+    "workaround_cost": 3,
+    "recurrence": 3,
+    "urgency": 2
+  },
+  "solution": {
+    "mechanism": 2,
+    "unassisted_use": 2,
+    "observed_outcome": 3,
+    "beats_status_quo": 2,
+    "repeat_choice": 3
+  },
+  "commitment_level": 6,
+  "payment_evidence": 3
+}

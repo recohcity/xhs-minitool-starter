@@ -10,6 +10,25 @@
 ### Added
 - 暂无待发布内容
 
+## [1.0.7] - 2026-10-08
+
+### Added
+- **Float（飘）反应力评测体系升级**（2026-09 至 10 月多轮迭代）：
+  - 60 秒限时 + 受控试次序列（三段渐进 + Warm-up + 超时跳题），输入清洗（`e.repeat` 过滤 + RT 异常分类）
+  - 中位数统计引擎：答对率 / 中位反应 / 连对 / 错后恢复 / 连续失误 / 切换成本 / 综合得分，全部本局实测、无人群对比伪数据
+  - 报告「被评测感」重构：画像 → 评语 → 游戏成绩 → 60 秒反应力・专注力轨迹 → 给你一个小挑战；10 型画像体系（闪电/稳王/回弹/抢先/节奏/临门/热身/待机/蓄力/连击）；5 维评测环（手速/正确/切换/抗扰/稳定）；最近 5 次表现隐藏
+  - 最后 5 秒紧迫感：白光内发光心跳闪 + 国际标准倒计时读秒音效（5 声读秒）
+  - 分享卡定稿（v11）与独立宣传图素材；分享话题标签 10 个（`#名称[话题]#` 序列化格式，真机蓝字附着）
+- 分享按钮「点两次才弹出发布页」彻底解决并沉淀 skill（见 `.skill/minitool-zip-builder/references/optimization-experience.md` §7.1 终案 + 挂起自动补发增强）：点击零准备、点击链路纯净、JPEG 0.85 降体积（810KB→57KB）、`writeTempFile` filePath 优先 + 预热提前到 endGame、`getLaunchOptions` 桥预热、600ms 超时判吞自动补发
+
+### Changed
+- **synonym-cards 移出仓库**：`game/synonym-cards` 整体迁至 `~/Documents/project/IdeaLab/synonym-cards`，本仓库不再包含该游戏
+- `.gitignore` 增补：`docs/`、`release/`、11 个 AI 助手本地状态目录（`.agent/` 等）、官方 skill 原始下载包（`minitool-zip-builder-*.skill`）均不入库
+- 仓库结构整理：删除全部 `.DS_Store`、`thesaurus-scraper` 的 `__pycache__` 等无用文件；`docs/skill-usage.md` 移至根目录 `skill-usage.md`
+
+### Fixed
+- 分享按钮真机「点两次」回归修复：容器吞掉首次 `postNote` 时 Promise 静默挂起（不 resolve 不 reject），原 catch 补发不触发——新增 600ms 超时判吞自动补发，点一次即可弹出发布页
+
 ## [1.0.6] - 2026-09-03
 
 ### Changed
@@ -98,6 +117,7 @@
 - `release/` 发布产物（图标与可直接上传的 zip 包）
 - MIT License
 
+[1.0.7]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.7
 [1.0.6]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.6
 [1.0.5]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.5
 [1.0.4]: https://github.com/recohcity/xhs-minitool-starter/releases/tag/v1.0.4

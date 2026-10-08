@@ -32,6 +32,7 @@
 
 - `mediaInfo` 必填；`image_resources`（图文）、`video_resources`（视频）、`live_photo_resources`（实况）至少传一种，可同时传。
 - 所有地址（`url` / `video_url` / `cover_url`）承载 base64 data:uri 或网络地址，格式由 Native 侧校验。
+- **真机经验**：媒体地址优先传 `writeTempFile` 返回的 `filePath`（`data:` base64 直传在真机首次过桥慢/易失败，会被容器静默吞掉，表现为「分享按钮点两次才弹出发布页」）；图片导出建议 JPEG（分享卡不透明时）控制过桥体积；首次桥调用前可先用无副作用的 `getLaunchOptions` 预热桥通道。
 
 ### 请求参数
 

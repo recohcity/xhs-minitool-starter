@@ -21,8 +21,28 @@ npm-debug.log*
 .env
 .env.local
 
-# 工具状态
+# 工具状态（AI 助手本地状态目录，不入库）
 .mimosa/
+.agent/
+.agents/
+.codex/
+.cursor/
+.gemini/
+.grok/
+.impeccable/
+.kiro/
+.opencode/
+.qoder/
+.workbuddy-ai/
 
 # 归档目录（不入库）
 archive/
+
+# 文档目录（不入库，docs 仅本地保留）
+docs/
+
+# 打包产物（正式包以 release/ 手动分发）
+release/
+
+# 官方 skill 原始下载包（已解压到 .skill/ 使用，源包不入库）
+minitool-zip-builder-*.skill
