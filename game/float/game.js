@@ -2544,31 +2544,36 @@ function wrapShareText(ctx, text, maxWidth, maxLines) {
     return lines;
 }
 
-// 分享图导出：540 宽 PNG——对齐两个实测一次成功的参考实现（水影笺、cute-face-grid
-// 均为 canvas.toDataURL('image/png') 直传 postNote）。历版真机反复证明 JPEG dataURL
-// 不稳定（时好时坏），PNG 在两个参考小工具上稳定一次弹出；体积 ~150-400KB 可接受
-// （容器对 PNG dataURL 解码最友好，官方示例也是 data:image/png）。
+// 分享图导出：默认输出 1080 宽 PNG（原实现 720 画布再缩到 540，双重降采样导致发布后模糊）。
+// 仍为 canvas.toDataURL('image/png') 直传 postNote——历版真机反复证明 JPEG dataURL
+// 不稳定（时好时坏），PNG 稳定一次弹出（对齐水影笺、cute-face-grid 参考实现）。
+// 1080 宽 PNG 体积约 0.5-1.5MB（dataURL ~1.3x），容器 PNG 解码最友好，官方示例也是 PNG。
 function exportShareCard(canvas) {
     try {
-        const w = 540;
+        const TARGET = 1080;
+        if (canvas.width >= TARGET) return canvas.toDataURL('image/png');
+        const w = TARGET;
         const h = Math.round(canvas.height * (w / canvas.width));
-        const small = document.createElement('canvas');
-        small.width = w;
-        small.height = h;
-        const sctx = small.getContext('2d');
-        sctx.drawImage(canvas, 0, 0, w, h);
-        return small.toDataURL('image/png');
+        const big = document.createElement('canvas');
+        big.width = w;
+        big.height = h;
+        const bctx = big.getContext('2d');
+        bctx.drawImage(canvas, 0, 0, w, h);
+        return big.toDataURL('image/png');
     } catch (e) {
-        return canvas.toDataURL('image/png'); // 缩小失败回退原尺寸导出
+        return canvas.toDataURL('image/png'); // 放大失败回退原尺寸导出
     }
 }
 
 function renderShareCard(snapshot) {
+    // 清晰度：720 逻辑坐标按 1.5x 缩放到 1080 宽画布，所有绘制坐标无需改动
+    const SCALE = 1.5;
     const canvas = document.createElement('canvas');
     const CX = 360;
-    canvas.width = 720;
-    canvas.height = 1700;
+    canvas.width = Math.round(720 * SCALE);
+    canvas.height = Math.round(1700 * SCALE);
     const ctx = canvas.getContext('2d');
+    ctx.scale(SCALE, SCALE);
     const diagColor = snapshot.diagColor || '#38bdf8';
 
     // 深海渐变背景
@@ -2742,11 +2747,11 @@ function renderShareCard(snapshot) {
     ctx.quadraticCurveTo(540, footerY + 22, 720, footerY + 52);
     ctx.stroke();
 
-    // 按实际内容裁剪
+    // 按实际内容裁剪（高度需同步 SCALE，否则 1080 画布内容被垂直压缩）
     const finalHeight = footerY + 80;
     const cropped = document.createElement('canvas');
     cropped.width = canvas.width;
-    cropped.height = finalHeight;
+    cropped.height = Math.round(finalHeight * SCALE);
     cropped.getContext('2d').drawImage(canvas, 0, 0);
     return cropped;
 }
